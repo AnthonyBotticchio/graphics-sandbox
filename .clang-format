@@ -1,0 +1,90 @@
+# Documentation for all clang-format formatting options: https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+
+---
+BasedOnStyle: LLVM
+Language: Cpp
+AccessModifierOffset: -2
+AlignConsecutiveAssignments: true
+AlignEscapedNewlinesLeft: false
+AlignTrailingComments: true
+AlignConsecutiveMacros: true
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakTemplateDeclarations: true
+BinPackParameters: true
+BreakBeforeBinaryOperators: false
+BreakBeforeBraces: Allman
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeComma
+ColumnLimit: 140
+CommentPragmas: '^ IWYU pragma:'
+ConstructorInitializerIndentWidth: 4
+ContinuationIndentWidth: 4
+Cpp11BracedListStyle: true
+DerivePointerBinding: false
+EmptyLineBeforeAccessModifier: Always
+FixNamespaceComments: true
+ForEachMacros:
+  - foreach
+  - Q_FOREACH
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^".*"$'
+    Priority: 1
+  - Regex: '^<(px4_msgs|px4_ros_com|rclcpp|rcl|rcutils|rmw|ament_index_cpp|geometry_msgs|nav_msgs|sensor_msgs|std_msgs|tf2|tf2_ros)/'
+    Priority: 2
+  - Regex: '^<[[:alnum:]_\.]+>$'
+    Priority: 3
+  - Regex: '^<(llvm|llvm-c|clang|clang-c)/'
+    Priority: 4
+    CaseSensitive: true
+  - Regex: '^<(gtest|gmock|isl|json)/'
+    Priority: 5
+  - Regex: '.*'
+    Priority: 10
+IndentCaseLabels: true
+IndentWidth: 4
+IndentWrappedFunctionNames: true
+IndentGotoLabels: false
+IndentExternBlock: AfterExternBlock
+IndentPPDirectives: Leave
+MaxEmptyLinesToKeep: 2
+NamespaceIndentation: All
+ObjCBlockIndentWidth: 4
+ObjCSpaceAfterProperty: true
+ObjCSpaceBeforeProtocolList: true
+PenaltyBreakBeforeFirstCallParameter: 19
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 60
+PackConstructorInitializers: CurrentLine
+PointerAlignment: Left    # SUPER IMPORTANT
+ReflowComments: true
+ReferenceAlignment: Left  # SUPER IMPORTANT
+SeparateDefinitionBlocks: Always # Specifies use of empty lines to separate definition block for classes, structs, enums, and functions.
+SortIncludes: CaseSensitive
+SortUsingDeclarations: true
+SpaceAfterCStyleCast: false
+SpaceAfterTemplateKeyword: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: Never
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeSquareBrackets: false
+SpaceBeforeRangeBasedForLoopColon: true
+SpacesBeforeTrailingComments: 1
+SpaceInEmptyParentheses: false
+SpacesInAngles: Never
+SpacesInSquareBrackets: false
+SpacesInContainerLiterals: true
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: true
+Standard: Latest
+TabWidth: 4
+UseTab: Never
+---
