@@ -9,6 +9,7 @@
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
@@ -17,7 +18,7 @@
 #define HEIGHT 800
 #define WIDTH  1200
 
-#define TIME_BLOCK_QUIET 1
+#define TIME_BLOCK_QUIET 0
 
 extern "C"
 {
@@ -195,6 +196,8 @@ namespace
 
 int main()
 {
+    setup_logger( NULL, LOG_DEBUG, true );
+
     if( !glfwInit() )
     {
         return EXIT_FAILURE;
@@ -242,12 +245,15 @@ int main()
     const std::vector<GLuint> shaders = { vertex_shader, fragment_shader }; // Must be in order
     const GLuint shader_prog          = gen_shader_program( shaders );
 
+    glUseProgram( shader_prog );
 
     // clang-format off
     GLfloat verticies[] = { 
-        0.5f,  0.5f, 0.0f,      // top right
-        0.5f, -0.5f, 0.0f,      // bottom right
-        -0.5f, -0.5f, 0.0f,     // bottom left
+        // positions         // colors
+        0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // bottom right
+        -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   // bottom left
+        0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f    // top middle
+
         -0.5f,  0.5f, 0.0f,     // top left 
         0.0f,  0.5f, 0.0f,      // top middle
         0.0f, -0.5f, 0.0f,      // bottom middle
@@ -257,7 +263,7 @@ int main()
     };
 
     GLuint indicies[] = {
-        0, 1, 3,  // first Triangle
+        0, 1, 2,  // first Triangle
         1, 2, 3,  // second Triangle
 
         6, 2, 1,
@@ -277,8 +283,12 @@ int main()
     glBindBuffer( GL_ARRAY_BUFFER, vbo );
     glBufferData( GL_ARRAY_BUFFER, sizeof( verticies ), &verticies, GL_STATIC_DRAW );
 
-    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof( GLfloat ), (void*)0 );
+    // position attribute
+    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof( float ), (void*)0 );
     glEnableVertexAttribArray( 0 );
+    // color attribute
+    glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof( float ), (void*)( 3 * sizeof( float ) ) );
+    glEnableVertexAttribArray( 1 );
 
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
     glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indicies ), &indicies, GL_STATIC_DRAW );
@@ -286,7 +296,6 @@ int main()
     // We can unbind the VBO and VAO. Unbinding the VAO isn't strictly necessary.
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
     glBindVertexArray( 0 );
-
 
     while( !glfwWindowShouldClose( window ) ) // Render loop
     {
@@ -296,16 +305,20 @@ int main()
         // Rendering
         glClearColor( 0.2f, 0.3f, 0.3f, 1.0f );
         glClear( GL_COLOR_BUFFER_BIT );
-        glUseProgram( shader_prog );
 
         time_block(
             [&]()
             {
+                float time          = glfwGetTime();
+                float x             = sin( time ) / 2.0f; // sin(time) is in [-1, 1] / 2 = [-0.5, 0.5] + 0.5 = [0.0, 1.0]
+                int xOffsetLocation = glGetUniformLocation( shader_prog, "xOffset" );
+                glUniform1f( xOffsetLocation, x );
+
                 glBindVertexArray( vao );
-                glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-                glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
                 glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-                glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)( 6 * sizeof( GLuint ) ) );
+                glDrawElements( GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0 );
+                // glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+                // glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)( 6 * sizeof( GLuint ) ) );
             },
             "Draw Block" );
 

@@ -18,7 +18,7 @@ linux() {
 }
 
 macos() {
-    echo "Configuring macOS for container GUIs..."
+    echo "Configuring macOS..."
 
     if ! command -v brew >/dev/null 2>&1; then
         echo "Homebrew is required. Install from https://brew.sh and re-run."
