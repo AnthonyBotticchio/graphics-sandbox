@@ -17,8 +17,10 @@
 
 #define HEIGHT 800
 #define WIDTH  1200
+#define TWOPI  6.28f
+#define PI     3.14159f
 
-#define TIME_BLOCK_QUIET 0
+#define TIME_BLOCK_QUIET 1
 
 extern "C"
 {
@@ -36,19 +38,9 @@ namespace
     static inline bool shader_link_check( const GLuint shaderProgram );
     static inline void time_block( std::function<void()> pred, const char* name = "Unknown" );
 
-    constexpr const char* vertexShaderSource = "#version 410 core\n"
-                                               "layout (location = 0) in vec3 aPos;\n"
-                                               "void main()\n"
-                                               "{\n"
-                                               "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-                                               "}\0";
-
-    constexpr const char* fragmentShaderSource = "#version 410 core\n"
-                                                 "out vec4 FragColor;\n"
-                                                 "void main()\n"
-                                                 "{\n"
-                                                 "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
-                                                 "}\0";
+    float dX    = 0.0;
+    float dY    = 0.0;
+    float theta = 0.00;
 
     static inline std::string get_shader_dir()
     {
@@ -101,7 +93,9 @@ namespace
     static inline void process_input( GLFWwindow* window )
     {
         if( glfwGetKey( window, GLFW_KEY_ESCAPE ) == GLFW_PRESS )
+        {
             glfwSetWindowShouldClose( window, true );
+        }
 
         if( glfwGetKey( window, GLFW_KEY_SEMICOLON ) == GLFW_PRESS )
         {
@@ -109,6 +103,33 @@ namespace
             const GLFWvidmode* mode = glfwGetVideoMode( monitor );
             glfwSetWindowMonitor( window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate );
             log_info( "Set window to fullscreen and changed refersh rate." );
+        }
+
+        if( glfwGetKey( window, GLFW_KEY_UP ) == GLFW_PRESS )
+        {
+            dY += 0.05;
+        }
+        else if( glfwGetKey( window, GLFW_KEY_DOWN ) == GLFW_PRESS )
+        {
+            dY += -0.05;
+        }
+
+        if( glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_PRESS )
+        {
+            dX += -0.05;
+        }
+        else if( glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_PRESS )
+        {
+            dX += 0.05;
+        }
+
+        if( glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS )
+        {
+            theta += -0.05;
+        }
+        else if( glfwGetKey( window, GLFW_KEY_D ) == GLFW_PRESS )
+        {
+            theta += 0.05;
         }
     }
 
@@ -191,7 +212,6 @@ namespace
         log_trace( "%s - Time taken: %lld ms", name, duration.count() );
 #endif
     }
-
 } // namespace
 
 int main()
@@ -309,10 +329,14 @@ int main()
         time_block(
             [&]()
             {
-                float time          = glfwGetTime();
-                float x             = sin( time ) / 2.0f; // sin(time) is in [-1, 1] / 2 = [-0.5, 0.5] + 0.5 = [0.0, 1.0]
-                int xOffsetLocation = glGetUniformLocation( shader_prog, "xOffset" );
-                glUniform1f( xOffsetLocation, x );
+                float t = glfwGetTime();
+                // float x            = sin( time ) / 2.0f; // sin(time) is in [-1, 1] / 2 = [-0.5, 0.5] + 0.5 = [0.0, 1.0]
+                int offsetLocation = glGetUniformLocation( shader_prog, "offset" );
+                int thetaLocation  = glGetUniformLocation( shader_prog, "theta" );
+                int timeLocation   = glGetUniformLocation( shader_prog, "t" );
+                glUniform2f( offsetLocation, dX, dY );
+                glUniform1f( thetaLocation, theta );
+                glUniform1f( timeLocation, t );
 
                 glBindVertexArray( vao );
                 glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
