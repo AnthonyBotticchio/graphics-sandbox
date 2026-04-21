@@ -38,23 +38,24 @@ namespace
     static inline bool shader_link_check( const GLuint shaderProgram );
     static inline void time_block( std::function<void()> pred, const char* name = "Unknown" );
 
-    float dX    = 0.0;
-    float dY    = 0.0;
-    float theta = 0.00;
+    float dX        = 0.0;
+    float dY        = 0.0;
+    float press_dur = 0.0;
+    float theta     = 0.00;
 
-    static inline std::string get_shader_dir()
+    static inline std::filesystem::path get_runtime_dir()
     {
 #ifdef __APPLE__
         char buffer[1024];
         uint32_t size = sizeof( buffer );
         if( _NSGetExecutablePath( buffer, &size ) == 0 )
         {
-            std::filesystem::path exec_path  = std::filesystem::path( buffer );
-            std::filesystem::path shader_dir = exec_path.parent_path().parent_path().append( "shader/" ); // exec_path include exec name
+            std::filesystem::path exec_path   = std::filesystem::path( buffer );
+            std::filesystem::path runtime_dir = exec_path.parent_path().parent_path(); // exec_path include exec name
 
-            log_debug( "Found Shader Path: %s", shader_dir.string().c_str() );
+            log_debug( "Found runtime path: %s", runtime_dir.string().c_str() );
 
-            return shader_dir.string();
+            return runtime_dir;
         }
         else
         {
@@ -68,7 +69,23 @@ namespace
 
     static inline std::string load_shader_source( const std::string fileName )
     {
-        std::string shader_path = get_shader_dir().append( fileName );
+        std::string shader_path = get_runtime_dir().append( "shader" ).append( fileName );
+        std::ifstream file( shader_path, std::ios::in );
+
+        if( !file )
+        {
+            log_error( "Failed opening file: %s", shader_path.c_str() );
+            return "";
+        }
+
+        std::ostringstream buffer;
+        buffer << file.rdbuf();
+        return buffer.str();
+    }
+
+    static inline std::string load_texture_source( const std::string fileName )
+    {
+        std::string shader_path = get_runtime_dir().append( "texture/" ).append( fileName );
         std::ifstream file( shader_path, std::ios::in );
 
         if( !file )
@@ -125,11 +142,21 @@ namespace
 
         if( glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS )
         {
-            theta += -0.05;
+            theta += -0.05 - press_dur;
+            press_dur += 0.001;
         }
         else if( glfwGetKey( window, GLFW_KEY_D ) == GLFW_PRESS )
         {
-            theta += 0.05;
+            theta += 0.05 + press_dur;
+            press_dur += 0.001;
+        }
+        else if( glfwGetKey( window, GLFW_KEY_A ) == GLFW_RELEASE )
+        {
+            press_dur = 0.0;
+        }
+        else if( glfwGetKey( window, GLFW_KEY_D ) == GLFW_RELEASE )
+        {
+            press_dur = 0.0;
         }
     }
 
@@ -269,10 +296,10 @@ int main()
 
     // clang-format off
     GLfloat verticies[] = { 
-        // positions         // colors
-        0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // bottom right
-        -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   // bottom left
-        0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f    // top middle
+        // positions         // colors          // texture
+        0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   1.0f, 0.0f, 0.0f,   // bottom right
+        -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f, 0.0f,   // bottom left
+        0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,   0.5f, 1.0f, 0.0f,   // top middle
 
         -0.5f,  0.5f, 0.0f,     // top left 
         0.0f,  0.5f, 0.0f,      // top middle
@@ -304,11 +331,22 @@ int main()
     glBufferData( GL_ARRAY_BUFFER, sizeof( verticies ), &verticies, GL_STATIC_DRAW );
 
     // position attribute
-    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof( float ), (void*)0 );
+    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof( float ), (void*)0 );
     glEnableVertexAttribArray( 0 );
     // color attribute
-    glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof( float ), (void*)( 3 * sizeof( float ) ) );
+    glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof( float ), (void*)( 3 * sizeof( float ) ) );
     glEnableVertexAttribArray( 1 );
+    // texture attribute
+    glVertexAttribPointer( 2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof( float ), (void*)( 6 * sizeof( float ) ) );
+    glEnableVertexAttribArray( 2 );
+
+    float borderColor[] = { 1.0f, 1.0f, 0.0f, 1.0f };
+    glTexParameterfv( GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+
 
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
     glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indicies ), &indicies, GL_STATIC_DRAW );
@@ -329,8 +367,7 @@ int main()
         time_block(
             [&]()
             {
-                float t = glfwGetTime();
-                // float x            = sin( time ) / 2.0f; // sin(time) is in [-1, 1] / 2 = [-0.5, 0.5] + 0.5 = [0.0, 1.0]
+                float t            = glfwGetTime();
                 int offsetLocation = glGetUniformLocation( shader_prog, "offset" );
                 int thetaLocation  = glGetUniformLocation( shader_prog, "theta" );
                 int timeLocation   = glGetUniformLocation( shader_prog, "t" );

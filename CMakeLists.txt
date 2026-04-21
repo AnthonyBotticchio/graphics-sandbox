@@ -44,3 +44,6 @@ endif()
 add_subdirectory(opengl)
 add_subdirectory(logger)
 
+# --- Installs ---
+
+install(DIRECTORY textures/ DESTINATION textures)
