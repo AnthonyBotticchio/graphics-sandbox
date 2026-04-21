@@ -14,7 +14,15 @@ void main()
     float s = sin(theta);
     float t_c = cos(t);
     float t_s = sin(t);
-    
+
+    mat2 rot_mat = mat2(
+        cos(theta), -sin(theta), 
+        sin(theta), cos(theta)
+    );
+
+
+    // vec2 rot = vec2(aPos.x * c - aPos.y * s, aPos.x * s + aPos.y * c);
+
     ourColor = vec3(aColor.x * t_c - aColor.y * t_s, aColor.y * t_c + aColor.x * t_s, aColor.z); // set ourColor to the input color we got from the vertex data
-    gl_Position = vec4( aPos.x * c - aPos.y * s + offset.x, aPos.x * s + aPos.y * c + offset.y, aPos.z, 1.0);
+    gl_Position = vec4(rot_mat * aPos.xy + offset, aPos.z, 1.0);
 }       
