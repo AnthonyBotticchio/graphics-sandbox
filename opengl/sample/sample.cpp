@@ -45,6 +45,7 @@ namespace
     float dY        = 0.00f;
     float press_dur = 0.00f;
     float theta     = 0.00f;
+    float mix_param = 0.00f;
 
     static inline std::filesystem::path get_runtime_dir()
     {
@@ -148,6 +149,15 @@ namespace
         {
             press_dur = 0.0;
         }
+
+        if( glfwGetKey( window, GLFW_KEY_W ) == GLFW_PRESS )
+        {
+            mix_param += 0.01;
+        }
+        else if( glfwGetKey( window, GLFW_KEY_S ) == GLFW_PRESS )
+        {
+            mix_param -= 0.01;
+        }
     }
 
     static inline void framebuffer_size_callback( GLFWwindow* window, int width, int height )
@@ -193,8 +203,8 @@ namespace
         glBindTexture( GL_TEXTURE_2D, texture );
         glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
         glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
-        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
-        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST );
         int width, height, nrChannels;
         std::string texture_path = get_texture_path( path );
         unsigned char* data      = stbi_load( texture_path.c_str(), &width, &height, &nrChannels, 0 );
@@ -262,14 +272,16 @@ namespace
         pred();
 #if !TIME_BLOCK_QUIET
         auto end      = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>( end - start );
-        log_trace( "%s - Time taken: %lld ms", name, duration.count() );
+        auto duration = std::chrono::duration<double, std::milli>( end - start ); // Fractional milliseconds
+        log_trace( "%s - Time taken: %.3f ms", name, duration.count() );
 #endif
     }
 } // namespace
 
 int main()
 {
+    // --- Init ---
+
     setup_logger( NULL, LOG_DEBUG, true );
     stbi_set_flip_vertically_on_load( true ); // Needed for pngs
 
@@ -278,7 +290,6 @@ int main()
         return EXIT_FAILURE;
     }
 
-    // macOS specific hints for modern OpenGL
     glfwWindowHint( GLFW_CONTEXT_VERSION_MAJOR, 4 );
     glfwWindowHint( GLFW_CONTEXT_VERSION_MINOR, 1 );
     glfwWindowHint( GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE );
@@ -304,15 +315,16 @@ int main()
 
     startup_info();
 
-    // Preparation for using shaders
+    // --- Shaders ---
+
     const std::string vertex_source   = load_shader_source( "vertex.vert" );
     const std::string fragment_source = load_shader_source( "fragment.frag" );
 
     const char* vertex_source_ptr   = vertex_source.c_str();
     const char* fragment_source_ptr = fragment_source.c_str();
 
-    log_debug( "Found Vertex Shader: %s", vertex_source_ptr );
-    log_debug( "Found Vertex Shader: %s", fragment_source_ptr );
+    log_debug( "Found Vertex Shader:\n%s", vertex_source_ptr );
+    log_debug( "Found Fragment Shader:\n%s", fragment_source_ptr );
 
     const GLuint vertex_shader   = gen_shaders( GL_VERTEX_SHADER, 1, &vertex_source_ptr );
     const GLuint fragment_shader = gen_shaders( GL_FRAGMENT_SHADER, 1, &fragment_source_ptr );
@@ -321,6 +333,8 @@ int main()
     const GLuint shader_prog          = gen_shader_program( shaders );
 
     glUseProgram( shader_prog );
+
+    // --- Setup ---
 
     // clang-format off
     constexpr GLfloat verticies[] = { 
@@ -351,66 +365,86 @@ int main()
     glGenBuffers( 1, &vbo );
     glGenBuffers( 1, &ebo );
 
-    // Original Drawing
-    // Bind the vertex array object first, then bind and set vertex buffer(s), and then configure vertex attributes.
-    glBindVertexArray( vao );
-
+    // VBO
     glBindBuffer( GL_ARRAY_BUFFER, vbo );
     glBufferData( GL_ARRAY_BUFFER, sizeof( verticies ), &verticies, GL_STATIC_DRAW );
 
-    // position attribute
-    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)0 );
+    // VAO - must be set after VBO to be bound to it
+    glBindVertexArray( vao );
+    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)0 ); // position attribute
     glEnableVertexAttribArray( 0 );
-    // color attribute
-    glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)( 3 * sizeof( float ) ) );
+    glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)( 3 * sizeof( float ) ) ); // color attribute
     glEnableVertexAttribArray( 1 );
-    // texture attribute
-    glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)( 6 * sizeof( float ) ) );
+    glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)( 6 * sizeof( float ) ) ); // texture attribute
     glEnableVertexAttribArray( 2 );
 
+    // EBO - must be set after VAO to be bound to it
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
     glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indicies ), &indicies, GL_STATIC_DRAW );
 
+    // We can unbind the VBO
+    glBindBuffer( GL_ARRAY_BUFFER, 0 );
+
+    // Textures
     GLuint wall_tex, leponge_tex;
     gen_texture( wall_tex, "wall.jpg" );
     gen_texture( leponge_tex, "leponge.jpeg" );
 
-    // We can unbind the VBO and VAO. Unbinding the VAO isn't strictly necessary.
-    glBindBuffer( GL_ARRAY_BUFFER, 0 );
-    glBindVertexArray( 0 );
+    // Constant Uniforms
+    GLuint offsetLocation    = glGetUniformLocation( shader_prog, "offset" );
+    GLuint thetaLocation     = glGetUniformLocation( shader_prog, "theta" );
+    GLuint timeLocation      = glGetUniformLocation( shader_prog, "t" );
+    GLuint mix_paramLocation = glGetUniformLocation( shader_prog, "mix_param" );
+    glUniform1i( glGetUniformLocation( shader_prog, "texture1" ), 0 ); // set texture1 to texture unit 0
+    glUniform1i( glGetUniformLocation( shader_prog, "texture2" ), 1 ); // set texture2 to texture unit 1
 
-    while( !glfwWindowShouldClose( window ) ) // Render loop
+    // Render loop
+    while( !glfwWindowShouldClose( window ) )
     {
-        // Inputs
-        process_input( window );
-
-        // Rendering
-        glClearColor( 0.2f, 0.3f, 0.3f, 1.0f );
-        glClear( GL_COLOR_BUFFER_BIT );
-
-        time_block(
+        time_block( // Time the whole render block
             [&]()
             {
-                float t            = glfwGetTime();
-                int offsetLocation = glGetUniformLocation( shader_prog, "offset" );
-                int thetaLocation  = glGetUniformLocation( shader_prog, "theta" );
-                int timeLocation   = glGetUniformLocation( shader_prog, "t" );
+                // Inputs
+                process_input( window );
+
+                // Rendering
+                glClearColor( 0.2f, 0.3f, 0.3f, 1.0f );
+                glClear( GL_COLOR_BUFFER_BIT );
+
+                // Set dynamically changing uniforms
+                float t = glfwGetTime();
                 glUniform2f( offsetLocation, dX, dY );
                 glUniform1f( thetaLocation, theta );
                 glUniform1f( timeLocation, t );
+                glUniform1f( mix_paramLocation, mix_param );
 
+                // Bind multiple textures
+                glActiveTexture( GL_TEXTURE0 );
+                glBindTexture( GL_TEXTURE_2D, wall_tex );
+                glActiveTexture( GL_TEXTURE1 );
+                glBindTexture( GL_TEXTURE_2D, leponge_tex );
+
+                // Bind vertex array
                 glBindVertexArray( vao );
-                glBindTexture( GL_TEXTURE_2D, press_dur > 0.2 ? leponge_tex : wall_tex );
-                glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-                glDrawElements( GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0 );
-                glBindVertexArray( 0 );
-            },
-            "Draw Block" );
 
-        // Check and call events and swap the buffers
-        glfwSwapBuffers( window );
-        glfwPollEvents();
+                // Draw
+                // glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+                glDrawElements( GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0 );
+                glFinish();
+
+                // Check and call events and swap the buffers
+                glfwSwapBuffers( window );
+                glfwPollEvents();
+            },
+            "Render Block" );
     }
+
+    // optional: de-allocate all resources once they've outlived their purpose
+    glDeleteVertexArrays( 1, &vao );
+    glDeleteBuffers( 1, &vbo );
+    glDeleteBuffers( 1, &ebo );
+    glDeleteTextures( 1, &wall_tex );
+    glDeleteTextures( 1, &leponge_tex );
 
     glfwTerminate();
 
