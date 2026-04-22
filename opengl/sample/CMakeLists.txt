@@ -33,6 +33,7 @@ target_sources(${TARGET} PRIVATE
 # --- Install ---
 
 set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shader)
+set(TEXTURE_DIR ${CMAKE_SOURCE_DIR}/textures)
 
 install(TARGETS ${TARGET} RUNTIME DESTINATION bin)
 install(DIRECTORY ${SHADER_DIR}/ DESTINATION shader)
@@ -42,9 +43,15 @@ install(DIRECTORY ${SHADER_DIR}/ DESTINATION shader)
 add_custom_target(copy_shaders ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${SHADER_DIR}/
-            $<TARGET_FILE_DIR:${TARGET}>/shader
+            ${CMAKE_BINARY_DIR}/shader
     COMMENT "Copying shaders..."
 )
 
-add_dependencies(${TARGET} copy_shaders)
+add_custom_target(copy_textures ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${TEXTURE_DIR}/
+            ${CMAKE_BINARY_DIR}/textures
+    COMMENT "Copying textures..."
+)
 
+add_dependencies(${TARGET} copy_shaders copy_textures)

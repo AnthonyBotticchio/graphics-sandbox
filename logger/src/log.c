@@ -52,8 +52,8 @@ static void stdout_callback( log_Event* ev )
     char buf[24];
 #ifndef LOG_NOT_USE_COLOR
     buf[strftime( buf, sizeof( buf ), "\x1b[96m%H:%M:%S\x1b[0m", ev->time )] = '\0'; // Use cyan for time.
-    fprintf( ev->udata, "%s %s%-5s\x1b[0m \x1b[90m%s:%d:\x1b[0m ", buf, level_colors[ev->level], level_strings[ev->level], ev->file,
-             ev->line );
+    fprintf( ev->udata, "%s %s%-5s\x1b[0m \x1b[90m%s:\x1b[0m ", buf, level_colors[ev->level], level_strings[ev->level],
+             ev->file ); // Can include ev-line for line number
 #else
     buf[strftime( buf, sizeof( buf ), "%H:%M:%S", ev->time )] = '\0';
     fprintf( ev->udata, "%s [%s] <%s> - ", buf, level_strings[ev->level], ev->file );

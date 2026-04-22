@@ -1,3 +1,6 @@
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <chrono>
 #include <fstream>
 #include <functional>
@@ -38,10 +41,10 @@ namespace
     static inline bool shader_link_check( const GLuint shaderProgram );
     static inline void time_block( std::function<void()> pred, const char* name = "Unknown" );
 
-    float dX        = 0.0;
-    float dY        = 0.0;
-    float press_dur = 0.0;
-    float theta     = 0.00;
+    float dX        = 0.00f;
+    float dY        = 0.00f;
+    float press_dur = 0.00f;
+    float theta     = 0.00f;
 
     static inline std::filesystem::path get_runtime_dir()
     {
@@ -52,9 +55,6 @@ namespace
         {
             std::filesystem::path exec_path   = std::filesystem::path( buffer );
             std::filesystem::path runtime_dir = exec_path.parent_path().parent_path(); // exec_path include exec name
-
-            log_debug( "Found runtime path: %s", runtime_dir.string().c_str() );
-
             return runtime_dir;
         }
         else
@@ -69,7 +69,7 @@ namespace
 
     static inline std::string load_shader_source( const std::string fileName )
     {
-        std::string shader_path = get_runtime_dir().append( "shader" ).append( fileName );
+        std::string shader_path = get_runtime_dir().append( "shader" ).append( fileName ).string();
         std::ifstream file( shader_path, std::ios::in );
 
         if( !file )
@@ -83,20 +83,10 @@ namespace
         return buffer.str();
     }
 
-    static inline std::string load_texture_source( const std::string fileName )
+    static inline std::string get_texture_path( const std::string fileName )
     {
-        std::string shader_path = get_runtime_dir().append( "texture/" ).append( fileName );
-        std::ifstream file( shader_path, std::ios::in );
-
-        if( !file )
-        {
-            log_error( "Failed opening file: %s", shader_path.c_str() );
-            return "";
-        }
-
-        std::ostringstream buffer;
-        buffer << file.rdbuf();
-        return buffer.str();
+        log_debug( "Returning texture path: %s", get_runtime_dir().append( "textures/" ).append( fileName ).string().c_str() );
+        return get_runtime_dir().append( "textures" ).append( fileName ).string();
     }
 
     static inline void startup_info()
@@ -197,6 +187,43 @@ namespace
         return program;
     }
 
+    static inline void gen_texture( GLuint& texture, const std::string& path )
+    {
+        glGenTextures( 1, &texture );
+        glBindTexture( GL_TEXTURE_2D, texture );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+        int width, height, nrChannels;
+        std::string texture_path = get_texture_path( path );
+        unsigned char* data      = stbi_load( texture_path.c_str(), &width, &height, &nrChannels, 0 );
+        if( data )
+        {
+            GLenum format;
+            if( nrChannels == 1 )
+                format = GL_RED;
+            else if( nrChannels == 2 )
+                format = GL_RG;
+            else if( nrChannels == 3 )
+                format = GL_RGB;
+            else if( nrChannels == 4 )
+                format = GL_RGBA;
+
+            glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
+            glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, format, GL_UNSIGNED_BYTE, data );
+            glGenerateMipmap( GL_TEXTURE_2D );
+        }
+        else
+        {
+            log_error( "Failed to load texture. Path: %s", texture_path.c_str() );
+        }
+        stbi_image_free( data );
+
+        // Unbind texture
+        glBindTexture( GL_TEXTURE_2D, 0 );
+    }
+
     static inline bool shader_compile_check( const GLuint shader )
     {
         int success;
@@ -212,15 +239,15 @@ namespace
         return success;
     }
 
-    static inline bool shader_link_check( const GLuint shaderProgram )
+    static inline bool shader_link_check( const GLuint program )
     {
         int success;
         char infoLog[512];
-        glGetProgramiv( shaderProgram, GL_LINK_STATUS, &success );
+        glGetProgramiv( program, GL_LINK_STATUS, &success );
 
         if( !success )
         {
-            glGetProgramInfoLog( shaderProgram, sizeof( infoLog ), NULL, infoLog );
+            glGetProgramInfoLog( program, sizeof( infoLog ), NULL, infoLog );
             log_error( "SHADER::LINK_FAILED: %s", infoLog );
         }
 
@@ -244,6 +271,7 @@ namespace
 int main()
 {
     setup_logger( NULL, LOG_DEBUG, true );
+    stbi_set_flip_vertically_on_load( true ); // Needed for pngs
 
     if( !glfwInit() )
     {
@@ -295,11 +323,11 @@ int main()
     glUseProgram( shader_prog );
 
     // clang-format off
-    GLfloat verticies[] = { 
+    constexpr GLfloat verticies[] = { 
         // positions         // colors          // texture
-        0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   1.0f, 0.0f, 0.0f,   // bottom right
-        -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f, 0.0f,   // bottom left
-        0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,   0.5f, 1.0f, 0.0f,   // top middle
+        0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   1.0f, 0.0f,   // bottom right
+        -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,   // bottom left
+        0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,   0.5f, 1.0f,   // top middle
 
         -0.5f,  0.5f, 0.0f,     // top left 
         0.0f,  0.5f, 0.0f,      // top middle
@@ -309,9 +337,9 @@ int main()
         0.0f, -1.0f, 0.0f
     };
 
-    GLuint indicies[] = {
-        0, 1, 2,  // first Triangle
-        1, 2, 3,  // second Triangle
+    constexpr GLuint indicies[] = {
+        0, 1, 2,  // First triangle
+        1, 2, 3,  // Second triangle
 
         6, 2, 1,
         7, 0, 3
@@ -331,25 +359,21 @@ int main()
     glBufferData( GL_ARRAY_BUFFER, sizeof( verticies ), &verticies, GL_STATIC_DRAW );
 
     // position attribute
-    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof( float ), (void*)0 );
+    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)0 );
     glEnableVertexAttribArray( 0 );
     // color attribute
-    glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof( float ), (void*)( 3 * sizeof( float ) ) );
+    glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)( 3 * sizeof( float ) ) );
     glEnableVertexAttribArray( 1 );
     // texture attribute
-    glVertexAttribPointer( 2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof( float ), (void*)( 6 * sizeof( float ) ) );
+    glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)( 6 * sizeof( float ) ) );
     glEnableVertexAttribArray( 2 );
-
-    float borderColor[] = { 1.0f, 1.0f, 0.0f, 1.0f };
-    glTexParameterfv( GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-
 
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
     glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indicies ), &indicies, GL_STATIC_DRAW );
+
+    GLuint wall_tex, leponge_tex;
+    gen_texture( wall_tex, "wall.jpg" );
+    gen_texture( leponge_tex, "leponge.jpeg" );
 
     // We can unbind the VBO and VAO. Unbinding the VAO isn't strictly necessary.
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
@@ -376,10 +400,10 @@ int main()
                 glUniform1f( timeLocation, t );
 
                 glBindVertexArray( vao );
+                glBindTexture( GL_TEXTURE_2D, press_dur > 0.2 ? leponge_tex : wall_tex );
                 glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
                 glDrawElements( GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0 );
-                // glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-                // glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)( 6 * sizeof( GLuint ) ) );
+                glBindVertexArray( 0 );
             },
             "Draw Block" );
 
