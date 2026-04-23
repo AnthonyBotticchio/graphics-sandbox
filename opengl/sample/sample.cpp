@@ -12,23 +12,23 @@
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <glm/ext.hpp>
 #include <glm/glm.hpp>
 
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
 
-#define HEIGHT 800
-#define WIDTH  1200
-#define TWOPI  6.28f
-#define PI     3.14159f
-
-#define TIME_BLOCK_QUIET 1
-
 extern "C"
 {
     #include <log.h>
 }
+
+#define HEIGHT 800
+#define WIDTH  800
+#define ASPECT (float)( WIDTH / HEIGHT )
+
+#define TIME_BLOCK_QUIET 1
 
 namespace
 {
@@ -43,9 +43,23 @@ namespace
 
     float dX        = 0.00f;
     float dY        = 0.00f;
+    float dZ        = 0.00f;
     float press_dur = 0.00f;
     float theta     = 0.00f;
     float mix_param = 0.00f;
+
+    static inline void apply_projection( const GLuint& modelLoc, const GLuint& viewLoc, const GLuint& projLoc )
+    {
+        // note that we're translating the scene in the reverse direction of where we want to move
+        glm::mat4 model      = glm::rotate( glm::mat4( 1.0f ), glm::radians( -55.0f ), glm::vec3( 1.0f, 0.0f, 0.0f ) );
+        model                = glm::rotate( model, (float)glfwGetTime() * glm::radians( 50.0f ), glm::vec3( 0.5f, 1.0f, 0.0f ) );
+        glm::mat4 view       = glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, -3.0f ) );
+        glm::mat4 projection = glm::perspective( glm::radians( 45.0f ), ASPECT, 0.1f, 100.0f );
+
+        glUniformMatrix4fv( modelLoc, 1, GL_FALSE, glm::value_ptr( model ) );
+        glUniformMatrix4fv( viewLoc, 1, GL_FALSE, glm::value_ptr( view ) );
+        glUniformMatrix4fv( projLoc, 1, GL_FALSE, glm::value_ptr( projection ) );
+    }
 
     static inline std::filesystem::path get_runtime_dir()
     {
@@ -119,16 +133,25 @@ namespace
         }
         else if( glfwGetKey( window, GLFW_KEY_DOWN ) == GLFW_PRESS )
         {
-            dY += -0.05;
+            dY -= 0.05;
         }
 
         if( glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_PRESS )
         {
-            dX += -0.05;
+            dX -= 0.05;
         }
         else if( glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_PRESS )
         {
             dX += 0.05;
+        }
+
+        if( glfwGetKey( window, GLFW_KEY_E ) == GLFW_PRESS )
+        {
+            dZ += 0.05;
+        }
+        else if( glfwGetKey( window, GLFW_KEY_Q ) == GLFW_PRESS )
+        {
+            dZ -= 0.05;
         }
 
         if( glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS )
@@ -243,7 +266,7 @@ namespace
         if( !success )
         {
             glGetShaderInfoLog( shader, sizeof( infoLog ), NULL, infoLog );
-            log_error( "SHADER::COMPILATION_FAILED: %s", infoLog );
+            log_error( "SHADER::COMPILATION_FAILED:\n%s", infoLog );
         }
 
         return success;
@@ -258,7 +281,7 @@ namespace
         if( !success )
         {
             glGetProgramInfoLog( program, sizeof( infoLog ), NULL, infoLog );
-            log_error( "SHADER::LINK_FAILED: %s", infoLog );
+            log_error( "SHADER::LINK_FAILED:\n%s", infoLog );
         }
 
         return success;
@@ -337,23 +360,70 @@ int main()
     // --- Setup ---
 
     // clang-format off
-    constexpr GLfloat verticies[] = { 
-        // positions         // colors          // texture
-        0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   1.0f, 0.0f,   // bottom right
-        -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,   // bottom left
-        0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,   0.5f, 1.0f,   // top middle
+    // constexpr GLfloat vertices[] = { 
+    //     // positions         // colors           // texture
+    //     0.5f, -0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 0.0f,   // bottom right
+    //     -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   0.0f, 0.0f,   // bottom left
+    //     0.0f,  0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.5f, 1.0f,   // top middle
+    //     -0.5f,  0.5f, 0.0f,  0.0f, 1.0f, 1.0f,   0.0f, 1.0f,   // top left
+    //     0.5f,  0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   1.0f, 1.0f,   // top right
 
-        -0.5f,  0.5f, 0.0f,     // top left 
-        0.0f,  0.5f, 0.0f,      // top middle
-        0.0f, -0.5f, 0.0f,      // bottom middle
+    //     -0.5f,  0.5f, 0.0f,     // top left 
+    //     0.0f,  0.5f, 0.0f,      // top middle
+    //     0.0f, -0.5f, 0.0f,      // bottom middle
 
-        0.0f, 1.0f, 0.0f,
-        0.0f, -1.0f, 0.0f
+    //     0.0f, 1.0f, 0.0f,
+    //     0.0f, -1.0f, 0.0f
+    // };
+
+    constexpr GLfloat vertices[] = {
+        // positions         // Texture
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+        0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+        0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+        0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+        0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+        0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+        0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
     };
 
-    constexpr GLuint indicies[] = {
-        0, 1, 2,  // First triangle
-        1, 2, 3,  // Second triangle
+    constexpr GLuint indices[] = {
+        0, 1, 4,  // First triangle
+        1, 3, 4,  // Second triangle
 
         6, 2, 1,
         7, 0, 3
@@ -367,20 +437,20 @@ int main()
 
     // VBO
     glBindBuffer( GL_ARRAY_BUFFER, vbo );
-    glBufferData( GL_ARRAY_BUFFER, sizeof( verticies ), &verticies, GL_STATIC_DRAW );
+    glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), &vertices, GL_STATIC_DRAW );
 
     // VAO - must be set after VBO to be bound to it
     glBindVertexArray( vao );
-    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)0 ); // position attribute
+    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof( float ), (void*)0 ); // position attribute
     glEnableVertexAttribArray( 0 );
-    glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)( 3 * sizeof( float ) ) ); // color attribute
+    // glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)( 3 * sizeof( float ) ) ); // color attribute
+    // glEnableVertexAttribArray( 1 );
+    glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof( float ), (void*)( 3 * sizeof( float ) ) ); // texture attribute
     glEnableVertexAttribArray( 1 );
-    glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)( 6 * sizeof( float ) ) ); // texture attribute
-    glEnableVertexAttribArray( 2 );
 
     // EBO - must be set after VAO to be bound to it
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
-    glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indicies ), &indicies, GL_STATIC_DRAW );
+    glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), &indices, GL_STATIC_DRAW );
 
     // We can unbind the VBO
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
@@ -395,8 +465,14 @@ int main()
     GLuint thetaLocation     = glGetUniformLocation( shader_prog, "theta" );
     GLuint timeLocation      = glGetUniformLocation( shader_prog, "t" );
     GLuint mix_paramLocation = glGetUniformLocation( shader_prog, "mix_param" );
+    GLuint modelLoc          = glGetUniformLocation( shader_prog, "model" );
+    GLuint viewLoc           = glGetUniformLocation( shader_prog, "view" );
+    GLuint projLoc           = glGetUniformLocation( shader_prog, "proj" );
     glUniform1i( glGetUniformLocation( shader_prog, "texture1" ), 0 ); // set texture1 to texture unit 0
     glUniform1i( glGetUniformLocation( shader_prog, "texture2" ), 1 ); // set texture2 to texture unit 1
+    glUniform1f( glGetUniformLocation( shader_prog, "aspect" ), ASPECT );
+
+    glEnable( GL_DEPTH_TEST );
 
     // Render loop
     while( !glfwWindowShouldClose( window ) )
@@ -409,14 +485,15 @@ int main()
 
                 // Rendering
                 glClearColor( 0.2f, 0.3f, 0.3f, 1.0f );
-                glClear( GL_COLOR_BUFFER_BIT );
+                glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
                 // Set dynamically changing uniforms
                 float t = glfwGetTime();
-                glUniform2f( offsetLocation, dX, dY );
+                glUniform3f( offsetLocation, dX, dY, dZ );
                 glUniform1f( thetaLocation, theta );
                 glUniform1f( timeLocation, t );
                 glUniform1f( mix_paramLocation, mix_param );
+                apply_projection( modelLoc, viewLoc, projLoc );
 
                 // Bind multiple textures
                 glActiveTexture( GL_TEXTURE0 );
@@ -428,9 +505,10 @@ int main()
                 glBindVertexArray( vao );
 
                 // Draw
-                // glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-                glDrawElements( GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0 );
-                glFinish();
+                // glPolygonMode( GL_FRONT_AND_BACK, GL_LINES );
+                // glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
+                glDrawArrays( GL_TRIANGLES, 0, 36 );
+                glFinish(); // optional
 
                 // Check and call events and swap the buffers
                 glfwSwapBuffers( window );
