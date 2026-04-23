@@ -10,6 +10,11 @@ set_target_properties(${TARGET} PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib # Static libs
 )
 
+# Release mode optimizations
+target_compile_options(${TARGET} PRIVATE 
+    $<$<CONFIG:Release>:-O3 -march=native> # -march=native targets local CPU optimizations
+)
+
 # --- Dependencies ---
 
 target_link_libraries(${TARGET} PRIVATE
