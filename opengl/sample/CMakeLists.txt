@@ -12,7 +12,7 @@ set_target_properties(${TARGET} PROPERTIES
 
 # Release mode optimizations
 target_compile_options(${TARGET} PRIVATE 
-    $<$<CONFIG:Release>:-O3 -march=native> # -march=native targets local CPU optimizations
+    $<$<CONFIG:Release>:-O3 -ffast-math -march=native> # -march=native targets local CPU optimizations
 )
 
 # --- Dependencies ---

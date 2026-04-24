@@ -24,17 +24,10 @@ extern "C"
     #include <log.h>
 }
 
-#define HEIGHT 800
-#define WIDTH  800
-#define ASPECT (float)( WIDTH / HEIGHT )
-#define FOV 60.0f
-
 #define TIME_BLOCK_QUIET 1
 
 namespace
 {
-    constexpr glm::mat3 I3 = glm::mat3( 1.0f );
-    constexpr glm::mat4 I4 = glm::mat4( 1.0f );
     static inline void startup_info();
     static inline void process_input( GLFWwindow* window );
     static inline void framebuffer_size_callback( GLFWwindow* window, int width, int height );
@@ -44,6 +37,12 @@ namespace
     static inline bool shader_link_check( const GLuint shaderProgram );
     static inline void time_block( std::function<void()> pred, const char* name = "Unknown" );
 
+    constexpr glm::mat3 I3 = glm::mat3( 1.0f );
+    constexpr glm::mat4 I4 = glm::mat4( 1.0f );
+
+    int HEIGHT      = 600;
+    int WIDTH       = 800;
+    float FOV       = 60.0f;
     float dX        = 0.00f;
     float dY        = 0.00f;
     float dZ        = 0.00f;
@@ -51,18 +50,10 @@ namespace
     float theta     = 0.00f;
     float mix_param = 0.00f;
 
-    static inline void apply_projection( const GLuint modelLoc, const GLuint viewLoc, const GLuint projLoc )
-    {
-        // note that we're translating the scene in the reverse direction of where we want to move
-        // glm::mat4 model = glm::rotate( glm::mat4( 1.0f ), glm::radians( -55.0f ), glm::vec3( 1.0f, 0.0f, 0.0f ) );
-        glm::mat4 model      = glm::rotate( I4, (float)glfwGetTime() * glm::radians( 50.0f ), glm::vec3( 0.5f, 1.0f, 0.0f ) );
-        glm::mat4 view       = glm::translate( I4, glm::vec3( 0.0f, 0.0f, -3.0f ) );
-        glm::mat4 projection = glm::perspective( glm::radians( 45.0f ), ASPECT, 0.1f, 100.0f );
-
-        glUniformMatrix4fv( modelLoc, 1, GL_FALSE, glm::value_ptr( model ) );
-        glUniformMatrix4fv( viewLoc, 1, GL_FALSE, glm::value_ptr( view ) );
-        glUniformMatrix4fv( projLoc, 1, GL_FALSE, glm::value_ptr( projection ) );
-    }
+    glm::vec3 cameraPos   = glm::vec3( 0.0f, 0.0f, 3.0f );
+    glm::vec3 cameraFront = glm::vec3( 0.0f, 0.0f, -1.0f );
+    glm::vec3 cameraUp    = glm::vec3( 0.0f, 1.0f, 0.0f );
+    GLfloat camera_speed  = 0.05;
 
     static inline std::filesystem::path get_runtime_dir()
     {
@@ -103,8 +94,9 @@ namespace
 
     static inline std::string get_texture_path( const std::string& fileName )
     {
-        log_debug( "Returning texture path: %s", get_runtime_dir().append( "textures/" ).append( fileName ).string().c_str() );
-        return get_runtime_dir().append( "textures" ).append( fileName ).string();
+        std::string texture_path = get_runtime_dir().append( "textures" ).append( fileName ).string();
+        log_debug( "Returning texture path: %s", texture_path.c_str() );
+        return texture_path;
     }
 
     static inline void startup_info()
@@ -122,47 +114,39 @@ namespace
             glfwSetWindowShouldClose( window, true );
         }
 
-        if( glfwGetKey( window, GLFW_KEY_SEMICOLON ) == GLFW_PRESS )
-        {
-            GLFWmonitor* monitor    = glfwGetPrimaryMonitor();
-            const GLFWvidmode* mode = glfwGetVideoMode( monitor );
-            glfwSetWindowMonitor( window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate );
-            log_info( "Set window to fullscreen and changed refersh rate." );
-        }
-
         if( glfwGetKey( window, GLFW_KEY_W ) == GLFW_PRESS )
         {
-            dY += 0.05;
+            cameraPos += camera_speed * cameraFront;
         }
         else if( glfwGetKey( window, GLFW_KEY_S ) == GLFW_PRESS )
         {
-            dY -= 0.05;
+            cameraPos -= camera_speed * cameraFront;
         }
 
         if( glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS )
         {
-            dX -= 0.05;
+            cameraPos -= camera_speed * glm::normalize( glm::cross( cameraFront, cameraUp ) );
         }
         else if( glfwGetKey( window, GLFW_KEY_D ) == GLFW_PRESS )
         {
-            dX += 0.05;
+            cameraPos += camera_speed * glm::normalize( glm::cross( cameraFront, cameraUp ) );
         }
 
         if( glfwGetKey( window, GLFW_KEY_E ) == GLFW_PRESS )
         {
-            dZ += 0.05;
+            cameraPos += camera_speed * cameraUp;
         }
         else if( glfwGetKey( window, GLFW_KEY_Q ) == GLFW_PRESS )
         {
-            dZ -= 0.05;
+            cameraPos -= camera_speed * cameraUp;
         }
 
-        if( glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_PRESS )
+        if( glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_PRESS )
         {
-            theta += -0.05 - press_dur;
+            theta -= 0.05 + press_dur;
             press_dur += 0.001;
         }
-        else if( glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_PRESS )
+        else if( glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_PRESS )
         {
             theta += 0.05 + press_dur;
             press_dur += 0.001;
@@ -183,6 +167,24 @@ namespace
         else if( glfwGetKey( window, GLFW_KEY_DOWN ) == GLFW_PRESS )
         {
             mix_param -= 0.01;
+        }
+
+        if( glfwGetKey( window, GLFW_KEY_X ) == GLFW_PRESS )
+        {
+            FOV += 0.1;
+        }
+        else if( glfwGetKey( window, GLFW_KEY_Z ) == GLFW_PRESS )
+        {
+            FOV -= 0.1;
+        }
+
+        if( glfwGetKey( window, GLFW_KEY_LEFT_SHIFT ) == GLFW_PRESS )
+        {
+            camera_speed = 0.1;
+        }
+        else if( glfwGetKey( window, GLFW_KEY_LEFT_SHIFT ) == GLFW_RELEASE )
+        {
+            camera_speed = 0.05;
         }
     }
 
@@ -230,7 +232,7 @@ namespace
         glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
         glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
         glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST );
-        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_MIPMAP );
         int width, height, nrChannels;
         std::string texture_path = get_texture_path( path );
         unsigned char* data      = stbi_load( texture_path.c_str(), &width, &height, &nrChannels, 0 );
@@ -313,6 +315,7 @@ int main()
 
     if( !glfwInit() )
     {
+        log_error( "GLFW Init Failed" );
         return EXIT_FAILURE;
     }
 
@@ -336,6 +339,8 @@ int main()
     if( glewInit() != GLEW_OK )
     {
         log_error( "GLEW Init Failed" );
+        glfwDestroyWindow( window );
+        glfwTerminate();
         return EXIT_FAILURE;
     }
 
@@ -379,6 +384,7 @@ int main()
     //     0.0f, -1.0f, 0.0f
     // };
 
+    // 6 faces of a cube
     constexpr GLfloat vertices[] = {
         // Positions         // Texture
         -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
@@ -474,20 +480,18 @@ int main()
 
     // Textures
     GLuint saul_tex, leponge_tex;
-    gen_texture( saul_tex, "saul.jpg" );
+    gen_texture( saul_tex, "cybertruck.jpg" );
     gen_texture( leponge_tex, "leponge.jpeg" );
 
     // Constant Uniforms
-    GLuint offsetLocation    = glGetUniformLocation( shader_prog, "offset" );
-    GLuint thetaLocation     = glGetUniformLocation( shader_prog, "theta" );
-    GLuint timeLocation      = glGetUniformLocation( shader_prog, "t" );
-    GLuint mix_paramLocation = glGetUniformLocation( shader_prog, "mix_param" );
-    GLuint modelLoc          = glGetUniformLocation( shader_prog, "model" );
-    GLuint viewLoc           = glGetUniformLocation( shader_prog, "view" );
-    GLuint projLoc           = glGetUniformLocation( shader_prog, "proj" );
+    GLuint thetaLoc     = glGetUniformLocation( shader_prog, "theta" );
+    GLuint timeLoc      = glGetUniformLocation( shader_prog, "t" );
+    GLuint mix_paramLoc = glGetUniformLocation( shader_prog, "mix_param" );
+    GLuint modelLoc     = glGetUniformLocation( shader_prog, "model" );
+    GLuint viewLoc      = glGetUniformLocation( shader_prog, "view" );
+    GLuint projLoc      = glGetUniformLocation( shader_prog, "proj" );
     glUniform1i( glGetUniformLocation( shader_prog, "texture1" ), 0 ); // set texture1 to texture unit 0
     glUniform1i( glGetUniformLocation( shader_prog, "texture2" ), 1 ); // set texture2 to texture unit 1
-    glUniform1f( glGetUniformLocation( shader_prog, "aspect" ), ASPECT );
 
     glEnable( GL_DEPTH_TEST );
 
@@ -510,16 +514,17 @@ int main()
                 glActiveTexture( GL_TEXTURE1 );
                 glBindTexture( GL_TEXTURE_2D, leponge_tex );
 
-                // Set dynamically changing uniforms
-                float t = glfwGetTime();
-                glUniform3f( offsetLocation, dX, dY, dZ );
-                glUniform1f( thetaLocation, theta );
-                glUniform1f( timeLocation, t );
-                glUniform1f( mix_paramLocation, mix_param );
-                // apply_projection( modelLoc, viewLoc, projLoc );
+                float time = glfwGetTime();
+                glfwGetFramebufferSize( window, &WIDTH, &HEIGHT );
+                float ASPECT = (float)WIDTH / (float)HEIGHT;
 
-                glm::mat4 view       = glm::translate( I4, glm::vec3( 0.0f, 0.0f, -5.0f ) );
+                glm::mat4 view       = glm::lookAt( cameraPos, cameraFront + cameraPos, cameraUp );
                 glm::mat4 projection = glm::perspective( glm::radians( FOV ), ASPECT, 0.1f, 100.0f );
+
+                // Set dynamically changing uniforms
+                glUniform1f( thetaLoc, theta );
+                glUniform1f( timeLoc, time );
+                glUniform1f( mix_paramLoc, mix_param );
                 glUniformMatrix4fv( viewLoc, 1, GL_FALSE, glm::value_ptr( view ) );
                 glUniformMatrix4fv( projLoc, 1, GL_FALSE, glm::value_ptr( projection ) );
 
@@ -529,11 +534,11 @@ int main()
                 {
                     glm::mat4 model = glm::translate( I4, cubePositions[i] );
                     float angle     = 20.0f * i; // Provide a random angle
-                    // model           = glm::rotate( model, glm::radians( angle ), glm::vec3( 1.0f, 0.3f, 0.5f ) );
+                    model           = glm::rotate( model, glm::radians( angle ), glm::vec3( 1.0f, 0.3f, 0.5f ) );
                     glUniformMatrix4fv( modelLoc, 1, GL_FALSE, glm::value_ptr( model ) );
                     glDrawArrays( GL_TRIANGLES, 0, 36 );
                 }
-                glFinish(); // optional
+                glFinish(); // optional, increases GPU usage
 
                 // Draw. Always bind vertex array
                 // glPolygonMode( GL_FRONT_AND_BACK, GL_LINES );
@@ -549,12 +554,14 @@ int main()
             "Render Block" );
     }
 
-    // optional: de-allocate all resources once they've outlived their purpose
+    // de-allocate all resources once they've outlived their purpose
+    const GLuint textures[] = { saul_tex, leponge_tex };
+    glDeleteTextures( 2, textures );
     glDeleteVertexArrays( 1, &vao );
     glDeleteBuffers( 1, &vbo );
     glDeleteBuffers( 1, &ebo );
-    glDeleteTextures( 1, &saul_tex );
-    glDeleteTextures( 1, &leponge_tex );
+    glDeleteProgram( shader_prog );
+    glfwDestroyWindow( window );
 
     glfwTerminate();
 
