@@ -6,9 +6,10 @@
 #include <functional>
 #include <iostream>
 #include <stdio.h>
-#include <stdlib.h>
+// #include <stdlib.h>
 #include <string>
 #include <vector>
+#include <filesystem>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -17,6 +18,8 @@
 
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
+#elif __linux__ 
+#include <unistd.h>
 #endif
 
 extern "C"
@@ -58,7 +61,7 @@ namespace
     static inline std::filesystem::path get_runtime_dir()
     {
 #ifdef __APPLE__
-        char buffer[1024];
+        char buffer[1024]; 
         uint32_t size = sizeof( buffer );
         if( _NSGetExecutablePath( buffer, &size ) == 0 )
         {
@@ -71,9 +74,25 @@ namespace
             log_error( "Could not find current executable path." );
             return "";
         }
-#endif
+#elif __linux__ 
+        char buffer[1024];
+        const ssize_t size = readlink( "/proc/self/exe", buffer, sizeof( buffer ) - 1 );
+        if( size != -1 )
+        {
+            buffer[size] = '\0';
+            std::filesystem::path exec_path   = std::filesystem::path( buffer );
+            std::filesystem::path runtime_dir = exec_path.parent_path().parent_path(); // exec_path include exec name
+            return runtime_dir;
+        }
+        else
+        {
+            log_error( "Could not find current executable path." );
+            return "";
+        }
+#else
         log_error( "TODO" );
-        return "";
+        return std::filesystem::path();
+#endif
     }
 
     static inline std::string load_shader_source( const std::string& fileName )
@@ -538,7 +557,7 @@ int main()
                     glUniformMatrix4fv( modelLoc, 1, GL_FALSE, glm::value_ptr( model ) );
                     glDrawArrays( GL_TRIANGLES, 0, 36 );
                 }
-                glFinish(); // optional, increases GPU usage
+                // glFinish(); // optional, increases GPU usage
 
                 // Draw. Always bind vertex array
                 // glPolygonMode( GL_FRONT_AND_BACK, GL_LINES );

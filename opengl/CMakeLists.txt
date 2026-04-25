@@ -1,15 +1,15 @@
 # --- Dependencies ---
 
-if(APPLE OR IOS)
+if(APPLE)
     find_package(OpenGL 4.1 REQUIRED)
+    find_package(GLFW3 REQUIRED)
 endif()
 
 if(UNIX AND NOT APPLE)
-    message(WARNING "TODO: Linux")
     find_package(OpenGL REQUIRED)
+    find_package(glfw3 REQUIRED)
 endif()
 
-find_package(GLFW3 REQUIRED)
 find_package(glm REQUIRED)
 find_package(GLEW REQUIRED)
 

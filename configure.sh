@@ -1,20 +1,37 @@
-#/bin/bash
+#!/usr/bin/env bash
 
-set -u
+set -euo pipefail
 
 general() {
     # Detect Platform
     OS=$(uname)
     PROFILE=linux
 
-    if [ "$OS" == "Darwin" ]; then
+    if [ "$OS" = "Darwin" ]; then
         PROFILE=macos
     fi
 }
 
 linux() {
-    # TODO
-    exit
+    echo "Configuring Linux..."
+
+    if ! command -v apt >/dev/null 2>&1; then
+        echo "apt is required for this Linux setup. Install dependencies manually for this distro."
+        exit 1
+    fi
+
+    # Install dependencies
+    DEPENDENCIES=(
+        libgl1-mesa-dev
+        mesa-common-dev
+        libglfw3-dev
+        libglew-dev
+        libglm-dev
+        cmake
+        ninja-build
+    )
+
+    sudo apt update && sudo apt install -y --no-install-recommends "${DEPENDENCIES[@]}"
 }
 
 macos() {
@@ -26,7 +43,12 @@ macos() {
     fi
 
     # Install dependencies
-    DEPENDENCIES=(glew glfw glm cmake)
+    DEPENDENCIES=(
+        glew
+        glfw
+        glm
+        cmake
+    )
     brew install "${DEPENDENCIES[@]}"
 }
 

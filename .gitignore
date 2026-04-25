@@ -4,6 +4,7 @@
 *.bin
 .DS_Store
 imgui.ini
+.codex
 
 # Changes to folders that will be ignored by git.
 # Format: [folder_name]/
