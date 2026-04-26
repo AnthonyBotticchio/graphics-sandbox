@@ -2,14 +2,11 @@
 #include "stb_image.h"
 
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <functional>
-#include <iostream>
-#include <stdio.h>
-// #include <stdlib.h>
 #include <string>
 #include <vector>
-#include <filesystem>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -18,13 +15,13 @@
 
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
-#elif __linux__ 
+#elif __linux__
 #include <unistd.h>
 #endif
 
 extern "C"
 {
-    #include <log.h>
+#include <log.h>
 }
 
 #define TIME_BLOCK_QUIET 1
@@ -43,8 +40,10 @@ namespace
     constexpr glm::mat3 I3 = glm::mat3( 1.0f );
     constexpr glm::mat4 I4 = glm::mat4( 1.0f );
 
-    int HEIGHT      = 600;
-    int WIDTH       = 800;
+    int HEIGHT      = 750;
+    int WIDTH       = 1000;
+    double lastX    = WIDTH / 2;
+    double lastY    = HEIGHT / 2;
     float FOV       = 60.0f;
     float dX        = 0.00f;
     float dY        = 0.00f;
@@ -52,16 +51,17 @@ namespace
     float press_dur = 0.00f;
     float theta     = 0.00f;
     float mix_param = 0.00f;
+    float deltaTime = 0.0f; // Time between current frame and last frame
+    float lastFrame = 0.0f; // Time of last frame
 
     glm::vec3 cameraPos   = glm::vec3( 0.0f, 0.0f, 3.0f );
     glm::vec3 cameraFront = glm::vec3( 0.0f, 0.0f, -1.0f );
     glm::vec3 cameraUp    = glm::vec3( 0.0f, 1.0f, 0.0f );
-    GLfloat camera_speed  = 0.05;
 
     static inline std::filesystem::path get_runtime_dir()
     {
 #ifdef __APPLE__
-        char buffer[1024]; 
+        char buffer[1024];
         uint32_t size = sizeof( buffer );
         if( _NSGetExecutablePath( buffer, &size ) == 0 )
         {
@@ -74,12 +74,10 @@ namespace
             log_error( "Could not find current executable path." );
             return "";
         }
-#elif __linux__ 
+#elif __linux__
         char buffer[1024];
-        const ssize_t size = readlink( "/proc/self/exe", buffer, sizeof( buffer ) - 1 );
-        if( size != -1 )
+        if( readlink( "/proc/self/exe", buffer, sizeof( buffer ) ) != 0 )
         {
-            buffer[size] = '\0';
             std::filesystem::path exec_path   = std::filesystem::path( buffer );
             std::filesystem::path runtime_dir = exec_path.parent_path().parent_path(); // exec_path include exec name
             return runtime_dir;
@@ -126,8 +124,36 @@ namespace
         log_info( "Shading Language Version: \t%s", glGetString( GL_SHADING_LANGUAGE_VERSION ) );
     }
 
+    static inline void mouse_callback( GLFWwindow* window, double x, double y )
+    {
+        float x_offset = x - lastX;
+        float y_offset = lastY - y; // reversed since y-coordinates range from bottom to top
+        lastX          = x;
+        lastY          = y;
+
+        constexpr float sensitivity = 0.1f;
+        x_offset *= sensitivity;
+        y_offset *= sensitivity;
+
+        log_trace( "Captured mouse callback. X: %f. Y: %f", lastX, lastY );
+    }
+
     static inline void process_input( GLFWwindow* window )
     {
+        float camera_speed;
+        float rotation_speed;
+
+        if( glfwGetKey( window, GLFW_KEY_LEFT_SHIFT ) == GLFW_PRESS )
+        {
+            camera_speed   = 5.0f * deltaTime;
+            rotation_speed = 50.0f * deltaTime;
+        }
+        else if( glfwGetKey( window, GLFW_KEY_LEFT_SHIFT ) == GLFW_RELEASE )
+        {
+            camera_speed   = 2.5f * deltaTime;
+            rotation_speed = 25.0f * deltaTime;
+        }
+
         if( glfwGetKey( window, GLFW_KEY_ESCAPE ) == GLFW_PRESS )
         {
             glfwSetWindowShouldClose( window, true );
@@ -162,12 +188,12 @@ namespace
 
         if( glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_PRESS )
         {
-            theta -= 0.05 + press_dur;
+            theta -= rotation_speed * ( 0.05 + press_dur );
             press_dur += 0.001;
         }
         else if( glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_PRESS )
         {
-            theta += 0.05 + press_dur;
+            theta += rotation_speed * ( 0.05 + press_dur );
             press_dur += 0.001;
         }
         else if( glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_RELEASE )
@@ -195,15 +221,6 @@ namespace
         else if( glfwGetKey( window, GLFW_KEY_Z ) == GLFW_PRESS )
         {
             FOV -= 0.1;
-        }
-
-        if( glfwGetKey( window, GLFW_KEY_LEFT_SHIFT ) == GLFW_PRESS )
-        {
-            camera_speed = 0.1;
-        }
-        else if( glfwGetKey( window, GLFW_KEY_LEFT_SHIFT ) == GLFW_RELEASE )
-        {
-            camera_speed = 0.05;
         }
     }
 
@@ -354,6 +371,8 @@ int main()
     }
     glfwMakeContextCurrent( window );
     glfwSetFramebufferSizeCallback( window, framebuffer_size_callback );
+    glfwSetInputMode( window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
+    glfwSetCursorPosCallback( window, mouse_callback );
 
     if( glewInit() != GLEW_OK )
     {
@@ -498,9 +517,9 @@ int main()
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
 
     // Textures
-    GLuint saul_tex, leponge_tex;
-    gen_texture( saul_tex, "cybertruck.jpg" );
-    gen_texture( leponge_tex, "leponge.jpeg" );
+    GLuint cyber_tex, saul_tex;
+    gen_texture( cyber_tex, "cybertruck.jpg" );
+    gen_texture( saul_tex, "saul.jpg" );
 
     // Constant Uniforms
     GLuint thetaLoc     = glGetUniformLocation( shader_prog, "theta" );
@@ -520,6 +539,15 @@ int main()
         time_block( // Time the whole render block
             [&]()
             {
+                // Deterministic calculations before
+                float time = glfwGetTime();
+                deltaTime  = time - lastFrame;
+                lastFrame  = time;
+                glfwGetFramebufferSize( window, &WIDTH, &HEIGHT );
+                float ASPECT         = (float)WIDTH / (float)HEIGHT;
+                glm::mat4 view       = glm::lookAt( cameraPos, cameraFront + cameraPos, cameraUp );
+                glm::mat4 projection = glm::perspective( glm::radians( FOV ), ASPECT, 0.1f, 100.0f );
+
                 // Inputs
                 process_input( window );
 
@@ -529,16 +557,9 @@ int main()
 
                 // Bind multiple textures
                 glActiveTexture( GL_TEXTURE0 );
-                glBindTexture( GL_TEXTURE_2D, saul_tex );
+                glBindTexture( GL_TEXTURE_2D, cyber_tex );
                 glActiveTexture( GL_TEXTURE1 );
-                glBindTexture( GL_TEXTURE_2D, leponge_tex );
-
-                float time = glfwGetTime();
-                glfwGetFramebufferSize( window, &WIDTH, &HEIGHT );
-                float ASPECT = (float)WIDTH / (float)HEIGHT;
-
-                glm::mat4 view       = glm::lookAt( cameraPos, cameraFront + cameraPos, cameraUp );
-                glm::mat4 projection = glm::perspective( glm::radians( FOV ), ASPECT, 0.1f, 100.0f );
+                glBindTexture( GL_TEXTURE_2D, saul_tex );
 
                 // Set dynamically changing uniforms
                 glUniform1f( thetaLoc, theta );
@@ -557,13 +578,11 @@ int main()
                     glUniformMatrix4fv( modelLoc, 1, GL_FALSE, glm::value_ptr( model ) );
                     glDrawArrays( GL_TRIANGLES, 0, 36 );
                 }
-                // glFinish(); // optional, increases GPU usage
 
-                // Draw. Always bind vertex array
-                // glPolygonMode( GL_FRONT_AND_BACK, GL_LINES );
-                // glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
-
-                // Finish using our program. Only necessary if we are using multiple pro
+#ifdef __APPLE__
+                glFinish(); // optional to synchronize draw calls. Reduces stuttering on OSX
+#endif
+                // Finish using our program. Only necessary if we are using multiple programs
                 // glUseProgram(0);
 
                 // Check and call events and swap the buffers
@@ -574,7 +593,7 @@ int main()
     }
 
     // de-allocate all resources once they've outlived their purpose
-    const GLuint textures[] = { saul_tex, leponge_tex };
+    const GLuint textures[] = { cyber_tex, saul_tex };
     glDeleteTextures( 2, textures );
     glDeleteVertexArrays( 1, &vao );
     glDeleteBuffers( 1, &vbo );
