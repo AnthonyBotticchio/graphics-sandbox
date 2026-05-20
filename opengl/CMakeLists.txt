@@ -1,4 +1,4 @@
-# --- Dependencies ---
+# --- OGL Dependencies ---
 
 if(APPLE)
     find_package(OpenGL 4.1 REQUIRED)
@@ -16,3 +16,4 @@ find_package(GLEW REQUIRED)
 # --- Subdirs ---
 
 add_subdirectory(sample)
+add_subdirectory(utilities SYSTEM)

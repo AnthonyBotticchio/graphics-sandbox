@@ -23,40 +23,40 @@ target_link_libraries(${TARGET} PRIVATE
     glm::glm
     GLEW::GLEW
     logger
+    utilities
 )
 
 # --- Sources ---
 
 file(GLOB_RECURSE CXX_SOURCES           "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
-file(GLOB_RECURSE CXX_PRIVATE_HEADERS   "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
+file(GLOB_RECURSE CXX_HEADERS   "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
 
 target_sources(${TARGET} PRIVATE
     ${CXX_SOURCES}
-    ${CXX_PRIVATE_HEADERS}
+    ${CXX_HEADERS}
 )
 
 # --- Install ---
 
-set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shader)
-set(TEXTURE_DIR ${CMAKE_SOURCE_DIR}/textures)
+set(SHADER_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/shader)
+set(TEXTURE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/textures)
 
-install(TARGETS ${TARGET} RUNTIME DESTINATION bin)
-install(DIRECTORY ${SHADER_DIR}/ DESTINATION shader)
+install(TARGETS     ${TARGET} RUNTIME DESTINATION bin)
+install(DIRECTORY   ${SHADER_DIR}     DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(DIRECTORY   ${TEXTURE_DIR}    DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 # --- Commands ---
 
-add_custom_target(copy_shaders ALL
+add_custom_command(TARGET ${TARGET} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${SHADER_DIR}/
+            ${SHADER_DIR}
             ${CMAKE_BINARY_DIR}/shader
     COMMENT "Copying shaders..."
 )
 
-add_custom_target(copy_textures ALL
+add_custom_command(TARGET ${TARGET} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${TEXTURE_DIR}/
+            ${TEXTURE_DIR}
             ${CMAKE_BINARY_DIR}/textures
     COMMENT "Copying textures..."
 )
-
-add_dependencies(${TARGET} copy_shaders copy_textures)

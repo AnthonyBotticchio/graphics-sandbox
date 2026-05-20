@@ -29,6 +29,7 @@ linux() {
         libglm-dev
         cmake
         ninja-build
+        clang-format
     )
 
     sudo apt update && sudo apt install -y --no-install-recommends "${DEPENDENCIES[@]}"
@@ -48,7 +49,10 @@ macos() {
         glfw
         glm
         cmake
+        clang-format
+        ninja
     )
+    
     brew install "${DEPENDENCIES[@]}"
 }
 
