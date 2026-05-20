@@ -15,17 +15,20 @@ set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install)
 
 # --- Platforms ---
 
-if(APPLE)
-    # Ensure homebrew packages are discoverable
-    list(APPEND ${CMAKE_PREFIX_PATH} "/opt/homebrew")
-endif()
-
 if(UNIX)
     set(BUILD_SHARED_LIBS ON)
 
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin) # Target
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib) # Shared libs
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib) # Static libs
+
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
+
+    if(APPLE)
+        # Ensure homebrew packages are discoverable
+        list(APPEND ${CMAKE_PREFIX_PATH} "/opt/homebrew")
+        set(CMAKE_INSTALL_RPATH "@loader_path/../lib")
+    endif()
 elseif(WIN32)
     set(BUILD_SHARED_LIBS OFF)
 

@@ -36,3 +36,10 @@ target_sources(${TARGET} PRIVATE
     ${CXX_SOURCES}
     ${CXX_HEADERS}
 )
+
+# --- Install ---
+
+install(TARGETS ${TARGET}
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)

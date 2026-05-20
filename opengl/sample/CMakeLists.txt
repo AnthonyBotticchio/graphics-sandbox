@@ -4,12 +4,6 @@ set(TARGET sample)
 
 add_executable(${TARGET})
 
-set_target_properties(${TARGET} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin # Target
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib # Shared libs
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib # Static libs
-)
-
 # Release mode optimizations
 target_compile_options(${TARGET} PRIVATE 
     $<$<CONFIG:Release>:-O3 -ffast-math -march=native> # -march=native targets local CPU optimizations
@@ -28,7 +22,7 @@ target_link_libraries(${TARGET} PRIVATE
 
 # --- Sources ---
 
-file(GLOB_RECURSE CXX_SOURCES           "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+file(GLOB_RECURSE CXX_SOURCES   "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 file(GLOB_RECURSE CXX_HEADERS   "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
 
 target_sources(${TARGET} PRIVATE
