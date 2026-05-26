@@ -10,13 +10,25 @@
 
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
-#elif __linux__
+#endif
+
+#ifdef __linux__
 #include <unistd.h>
+#endif
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #endif
 
 extern "C"
 {
-    #include <log.h>
+#include <log.h>
 }
 
 namespace
@@ -37,7 +49,9 @@ namespace
             log_error( "Could not find current executable path." );
             return "";
         }
-#elif __linux__
+#endif
+
+#ifdef __linux__
         char buffer[1024];
         if( readlink( "/proc/self/exe", buffer, sizeof( buffer ) ) != 0 )
         {
@@ -50,10 +64,26 @@ namespace
             log_error( "Could not find current executable path." );
             return "";
         }
-#elif __WIN32__
-        log_error( "TODO" );
-        return std::filesystem::path();
 #endif
+
+#ifdef _WIN32
+        wchar_t buffer[MAX_PATH];
+        DWORD size = GetModuleFileNameW( nullptr, buffer, MAX_PATH );
+
+        if( size != 0 && size < MAX_PATH )
+        {
+            std::filesystem::path exec_path   = std::filesystem::path( buffer );
+            std::filesystem::path runtime_dir = exec_path.parent_path().parent_path(); // exec_path include exec name
+            return runtime_dir;
+        }
+        else
+        {
+            log_error( "Could not find current executable path." );
+            return "";
+        }
+#endif
+        log_error( "Unsupported platform." );
+        return "";
     }
 
     std::string get_texture_path( const std::string& fileName )
@@ -84,10 +114,10 @@ namespace utilities
 
     void startup_info()
     {
-        log_info( "Loaded OpenGL: \t\t%s", glGetString( GL_VERSION ) );
-        log_info( "Graphics Device: \t\t%s", glGetString( GL_RENDERER ) );
-        log_info( "Vendor: \t\t\t%s", glGetString( GL_VENDOR ) );
-        log_info( "Shading Language Version: \t%s", glGetString( GL_SHADING_LANGUAGE_VERSION ) );
+        log_info( "Loaded OpenGL: %s", glGetString( GL_VERSION ) );
+        log_info( "Graphics Device: %s", glGetString( GL_RENDERER ) );
+        log_info( "Vendor: %s", glGetString( GL_VENDOR ) );
+        log_info( "Shading Language Version: %s", glGetString( GL_SHADING_LANGUAGE_VERSION ) );
     }
 
     void framebuffer_size_callback( GLFWwindow* window, int width, int height )
@@ -138,7 +168,7 @@ namespace utilities
         int width, height, nrChannels;
         std::string texture_path = get_texture_path( path );
         stbi_set_flip_vertically_on_load( true );
-        unsigned char* data      = stbi_load( texture_path.c_str(), &width, &height, &nrChannels, 0 );
+        unsigned char* data = stbi_load( texture_path.c_str(), &width, &height, &nrChannels, 0 );
         if( data )
         {
             GLenum format = GL_RGB;

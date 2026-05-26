@@ -5,7 +5,6 @@
             "name": "msvc-ninja",
             "generator": "Ninja",
             "binaryDir": "build",
-            "toolchainFile": "",
             "environment": {
                 "CC": "cl",
                 "CXX": "cl"

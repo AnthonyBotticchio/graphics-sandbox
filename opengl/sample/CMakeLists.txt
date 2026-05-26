@@ -5,9 +5,11 @@ set(TARGET sample)
 add_executable(${TARGET})
 
 # Release mode optimizations
-target_compile_options(${TARGET} PRIVATE 
-    $<$<CONFIG:Release>:-O3 -ffast-math -march=native> # -march=native targets local CPU optimizations
-)
+if(UNIX)
+    target_compile_options(${TARGET} PRIVATE 
+        $<$<CONFIG:Release>:-O3 -ffast-math -march=native> # -march=native targets local CPU optimizations
+    )
+endif()
 
 # --- Dependencies ---
 
@@ -35,7 +37,7 @@ target_sources(${TARGET} PRIVATE
 set(SHADER_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/shader)
 set(TEXTURE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/textures)
 
-install(TARGETS     ${TARGET} RUNTIME DESTINATION bin)
+install(TARGETS     ${TARGET} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY   ${SHADER_DIR}     DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(DIRECTORY   ${TEXTURE_DIR}    DESTINATION ${CMAKE_INSTALL_PREFIX})
 

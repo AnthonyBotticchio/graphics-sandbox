@@ -5,9 +5,11 @@ set(TARGET utilities)
 add_library(${TARGET})
 
 # Release mode optimizations
-target_compile_options(${TARGET} PRIVATE 
-    $<$<CONFIG:Release>:-O3 -ffast-math -march=native> # -march=native targets local CPU optimizations
-)
+if(UNIX)
+    target_compile_options(${TARGET} PRIVATE 
+        $<$<CONFIG:Release>:-O3 -ffast-math -march=native> # -march=native targets local CPU optimizations
+    )
+endif()
 
 target_compile_definitions(${TARGET} PRIVATE
     TIME_BLOCK_QUIET
@@ -40,6 +42,6 @@ target_sources(${TARGET} PRIVATE
 # --- Install ---
 
 install(TARGETS ${TARGET}
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
