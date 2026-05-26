@@ -9,7 +9,7 @@
 
 extern "C"
 {
-    #include <log.h>
+#include <log.h>
 }
 
 namespace
@@ -205,6 +205,7 @@ int main()
     }
 
     utilities::startup_info(); // Display startup info
+    utilities::time_block( [] { int i, b, c; }, "Thingy" );
 
     // --- Shaders ---
 
