@@ -27,17 +27,8 @@ target_link_libraries(${TARGET} PUBLIC
 
 # --- Sources ---
 
-target_include_directories(${TARGET} PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-
-file(GLOB_RECURSE CXX_SOURCES   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-file(GLOB_RECURSE CXX_HEADERS   "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
-
-target_sources(${TARGET} PRIVATE
-    ${CXX_SOURCES}
-    ${CXX_HEADERS}
-)
+add_subdirectory(include)
+add_subdirectory(src)
 
 # --- Install ---
 

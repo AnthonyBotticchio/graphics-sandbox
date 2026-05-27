@@ -1,14 +1,14 @@
 #ifndef UTILITIES_HPP
 #define UTILITIES_HPP
 
+#include <functional>
+#include <string>
+#include <vector>
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
-
-#include <functional>
-#include <string>
-#include <vector>
 
 namespace utilities
 {
