@@ -50,7 +50,7 @@ IndentWidth: 4
 IndentWrappedFunctionNames: true
 IndentGotoLabels: false
 IndentExternBlock: AfterExternBlock
-# IndentPPDirectives: Leave
+IndentPPDirectives: Leave
 MaxEmptyLinesToKeep: 2
 NamespaceIndentation: All
 ObjCBlockIndentWidth: 4

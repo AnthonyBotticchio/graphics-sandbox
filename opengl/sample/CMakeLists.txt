@@ -19,11 +19,12 @@ target_link_libraries(${TARGET} PRIVATE
     glm::glm
     GLEW::GLEW
     logger
-    utilities
+    utils
 )
 
 # --- Sources ---
 
+add_subdirectory(precompiled)
 add_subdirectory(include)
 add_subdirectory(src)
 

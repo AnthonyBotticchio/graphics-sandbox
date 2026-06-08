@@ -12,3 +12,8 @@ namespace
 Camera::Camera()
 {
 }
+
+const glm::vec4& Camera::getProjectionMatrix() const
+{
+    return glm::vec4{};
+}

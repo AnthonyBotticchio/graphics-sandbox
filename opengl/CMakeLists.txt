@@ -21,4 +21,4 @@ endif()
 # --- Subdirs ---
 
 add_subdirectory(sample)
-add_subdirectory(utilities SYSTEM)
+add_subdirectory(utils)

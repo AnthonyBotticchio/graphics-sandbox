@@ -1,6 +1,6 @@
 # --- TARGET ---
 
-set(TARGET utilities)
+set(TARGET utils)
 
 add_library(${TARGET})
 

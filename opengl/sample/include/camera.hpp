@@ -5,17 +5,21 @@
 
 class Camera
 {
-    enum Camera_Movement
+    enum class Movement : u8
     {
         FORWARD,
         BACKWARD,
         LEFT,
-        RIGHT
+        RIGHT,
+        UP,
+        DOWN
     };
 
   public:
     Camera();
     ~Camera() = default;
+
+    const glm::vec4& getProjectionMatrix() const;
 
   private:
     glm::vec3 m_position;

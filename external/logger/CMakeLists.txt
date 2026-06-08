@@ -2,7 +2,7 @@
 
 set(TARGET logger)
 
-add_library(${TARGET})
+add_library(${TARGET} STATIC)
 
 # --- Sources ---
 
@@ -18,11 +18,4 @@ file(GLOB_RECURSE C_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
 target_sources(${TARGET} PRIVATE 
     ${C_SOURCES} 
     ${C_HEADERS}
-)
-
-# --- Install ---
-
-install(TARGETS ${TARGET}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )

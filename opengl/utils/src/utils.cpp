@@ -1,7 +1,7 @@
-#include "utilities/utilities.hpp"
+#include "utils/utils.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "utilities/stb_image.h"
+#include "utils/stb_image.h"
 
 #include <chrono>
 #include <filesystem>
@@ -9,33 +9,33 @@
 #include <sstream>
 
 #ifdef __APPLE__
-#include <mach-o/dyld.h>
+    #include <mach-o/dyld.h>
 #endif
 
 #ifdef __linux__
-#include <unistd.h>
+    #include <unistd.h>
 #endif
 
 #ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
+    #include <windows.h>
 #endif
 
 extern "C"
 {
-#include <log.h>
+    #include <log.h>
 }
 
 namespace
 {
     std::filesystem::path get_runtime_dir()
     {
-#ifdef __APPLE__
+        #ifdef __APPLE__
         char buffer[1024];
         uint32_t size = sizeof( buffer );
         if( _NSGetExecutablePath( buffer, &size ) == 0 )
@@ -49,9 +49,9 @@ namespace
             log_error( "Could not find current executable path." );
             return "";
         }
-#endif
+        #endif
 
-#ifdef __linux__
+        #ifdef __linux__
         char buffer[1024];
         if( readlink( "/proc/self/exe", buffer, sizeof( buffer ) ) != 0 )
         {
@@ -64,9 +64,9 @@ namespace
             log_error( "Could not find current executable path." );
             return "";
         }
-#endif
+        #endif
 
-#ifdef _WIN32
+        #ifdef _WIN32
         wchar_t buffer[MAX_PATH];
         DWORD size = GetModuleFileNameW( nullptr, buffer, MAX_PATH );
 
@@ -81,7 +81,7 @@ namespace
             log_error( "Could not find current executable path." );
             return "";
         }
-#endif
+        #endif
         log_error( "Unsupported platform." );
         return "";
     }
@@ -94,7 +94,7 @@ namespace
     }
 } // namespace
 
-namespace utilities
+namespace utils
 {
     std::string load_shader_source( const std::string& fileName )
     {
@@ -112,7 +112,7 @@ namespace utilities
         return buffer.str();
     }
 
-    void startup_info()
+    void display_device_info()
     {
         log_info( "Loaded OpenGL: %s", glGetString( GL_VERSION ) );
         log_info( "Graphics Device: %s", glGetString( GL_RENDERER ) );
@@ -227,14 +227,16 @@ namespace utilities
 
     void time_block( std::function<void()> pred, const char* name )
     {
-#ifndef TIME_BLOCK_QUIET
+        #ifndef TIME_BLOCK_QUIET
         auto start = std::chrono::steady_clock::now();
-#endif
+        #endif
+
         pred();
-#ifndef TIME_BLOCK_QUIET
+
+        #ifndef TIME_BLOCK_QUIET
         auto end      = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration<double, std::milli>( end - start ); // Fractional milliseconds
         log_trace( "%s - Time taken: %.3f ms", name, duration.count() );
-#endif
+        #endif
     }
-} // namespace utilities
+} // namespace utils

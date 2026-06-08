@@ -1,3 +1,7 @@
+#include "camera.hpp"
+#include "utils/utils.hpp"
+
+#include <array>
 #include <string>
 #include <vector>
 
@@ -5,18 +9,14 @@
 #include <GLFW/glfw3.h>
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
-#include <utilities/utilities.hpp>
 
 extern "C"
 {
-#include <log.h>
+    #include <log.h>
 }
 
 namespace
 {
-    constexpr glm::mat3 I3 = glm::mat3( 1.0f );
-    constexpr glm::mat4 I4 = glm::mat4( 1.0f );
-
     int HEIGHT      = 750;
     int WIDTH       = 1000;
     double lastX    = WIDTH / 2;
@@ -192,7 +192,7 @@ int main()
         return EXIT_FAILURE;
     }
     glfwMakeContextCurrent( window );
-    glfwSetFramebufferSizeCallback( window, utilities::framebuffer_size_callback );
+    glfwSetFramebufferSizeCallback( window, utils::framebuffer_size_callback );
     glfwSetInputMode( window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
     glfwSetCursorPosCallback( window, mouse_callback );
 
@@ -204,13 +204,13 @@ int main()
         return EXIT_FAILURE;
     }
 
-    utilities::startup_info(); // Display startup info
-    utilities::time_block( [] { int i, b, c; }, "Thingy" );
+    utils::display_device_info(); // Display startup info
+    utils::time_block( [] { int i, b, c; }, "Thingy" );
 
     // --- Shaders ---
 
-    const std::string vertex_source   = utilities::load_shader_source( "vertex.vert" );
-    const std::string fragment_source = utilities::load_shader_source( "fragment.frag" );
+    const std::string vertex_source   = utils::load_shader_source( "vertex.vert" );
+    const std::string fragment_source = utils::load_shader_source( "fragment.frag" );
 
     const char* vertex_source_ptr   = vertex_source.c_str();
     const char* fragment_source_ptr = fragment_source.c_str();
@@ -218,11 +218,11 @@ int main()
     log_debug( "Found Vertex Shader:\n%s", vertex_source_ptr );
     log_debug( "Found Fragment Shader:\n%s", fragment_source_ptr );
 
-    const GLuint vertex_shader   = utilities::gen_shaders( GL_VERTEX_SHADER, 1, &vertex_source_ptr );
-    const GLuint fragment_shader = utilities::gen_shaders( GL_FRAGMENT_SHADER, 1, &fragment_source_ptr );
+    const GLuint vertex_shader   = utils::gen_shaders( GL_VERTEX_SHADER, 1, &vertex_source_ptr );
+    const GLuint fragment_shader = utils::gen_shaders( GL_FRAGMENT_SHADER, 1, &fragment_source_ptr );
 
     const std::vector<GLuint> shaders = { vertex_shader, fragment_shader }; // Must be in order
-    const GLuint shader_prog          = utilities::gen_shader_program( shaders );
+    const GLuint shader_prog          = utils::gen_shader_program( shaders );
 
     glUseProgram( shader_prog );
 
@@ -300,15 +300,15 @@ int main()
     };
 
     // Random cube positions in world coordinates
-    constexpr glm::vec3 cubePositions[] = {
+    constexpr std::array<glm::vec3, 10> cubePositions = {
         glm::vec3( 0.0f,  0.0f,  0.0f), 
         glm::vec3( 2.0f,  5.0f, -15.0f), 
         glm::vec3(-1.5f, -2.2f, -2.5f),  
         glm::vec3(-3.8f, -2.0f, -12.3f),  
         glm::vec3( 2.4f, -0.4f, -3.5f),  
         glm::vec3(-1.7f,  3.0f, -7.5f),  
-        glm::vec3( 1.3f, -2.0f, -2.5f),  
-        glm::vec3( 1.5f,  2.0f, -2.5f), 
+        glm::vec3( 1.3f, -2.0f, -2.5f),   
+        glm::vec3( 1.5f,  2.0f, -2.5f),  
         glm::vec3( 1.5f,  0.2f, -1.5f), 
         glm::vec3(-1.3f,  1.0f, -1.5f)  
     };
@@ -340,9 +340,9 @@ int main()
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
 
     // Textures
-    GLuint cyber_tex, saul_tex;
-    utilities::gen_texture( cyber_tex, "wall.jpg" );
-    utilities::gen_texture( saul_tex, "saul.jpg" );
+    GLuint wall_tex, saul_tex;
+    utils::gen_texture( wall_tex, "wall.jpg" );
+    utils::gen_texture( saul_tex, "saul.jpg" );
 
     // Constant Uniforms
     GLuint thetaLoc     = glGetUniformLocation( shader_prog, "theta" );
@@ -359,7 +359,7 @@ int main()
     // Render loop
     while( !glfwWindowShouldClose( window ) )
     {
-        utilities::time_block( // Time the whole render block
+        utils::time_block( // Time the whole render block
             [&]()
             {
                 // Deterministic calculations before
@@ -367,11 +367,13 @@ int main()
                 float dt  = t - lastFrame;
                 lastFrame = t;
                 glfwGetFramebufferSize( window, &WIDTH, &HEIGHT );
-                float ASPECT         = (float)WIDTH / (float)HEIGHT;
+                float ASPECT         = static_cast<float>( WIDTH ) / static_cast<float>( HEIGHT );
                 glm::mat4 view       = glm::lookAt( cameraPos, cameraFront + cameraPos, cameraUp );
                 glm::mat4 projection = glm::perspective( glm::radians( FOV ), ASPECT, 0.1f, 100.0f );
 
-                // Inputs
+                // Inputs: Check and call events and swap the buffers
+                glfwSwapBuffers( window );
+                glfwPollEvents();
                 process_input( window, dt );
 
                 // Colors and Depth
@@ -380,7 +382,7 @@ int main()
 
                 // Bind multiple textures
                 glActiveTexture( GL_TEXTURE0 );
-                glBindTexture( GL_TEXTURE_2D, cyber_tex );
+                glBindTexture( GL_TEXTURE_2D, wall_tex );
                 glActiveTexture( GL_TEXTURE1 );
                 glBindTexture( GL_TEXTURE_2D, saul_tex );
 
@@ -393,7 +395,7 @@ int main()
 
                 // Draw boxes
                 glBindVertexArray( vao );
-                for( int i = 0; i < 10; i++ )
+                for( size_t i{ cubePositions.size() }; i-- > 0; )
                 {
                     glm::mat4 model = glm::translate( I4, cubePositions[i] );
                     float angle     = 20.0f * i; // Provide a random angle
@@ -402,21 +404,18 @@ int main()
                     glDrawArrays( GL_TRIANGLES, 0, 36 );
                 }
 
-#ifdef __APPLE__
+                #ifdef __APPLE__
                 glFinish(); // optional to synchronize draw calls. Reduces stuttering on OSX
-#endif
+                #endif
+
                 // Finish using our program. Only necessary if we are using multiple programs
                 // glUseProgram(0);
-
-                // Check and call events and swap the buffers
-                glfwSwapBuffers( window );
-                glfwPollEvents();
             },
             "Render Block" );
     }
 
     // de-allocate all resources once they've outlived their purpose
-    const GLuint textures[] = { cyber_tex, saul_tex };
+    const GLuint textures[] = { wall_tex, saul_tex };
     glDeleteTextures( 2, textures );
     glDeleteVertexArrays( 1, &vao );
     glDeleteBuffers( 1, &vbo );
