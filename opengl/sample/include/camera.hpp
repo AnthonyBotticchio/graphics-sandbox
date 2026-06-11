@@ -19,10 +19,15 @@ class Camera
     Camera();
     ~Camera() = default;
 
+    Movement getMovement() const;
     const glm::vec4& getProjectionMatrix() const;
 
   private:
-    glm::vec3 m_position;
+    Movement m_movement = Movement::FORWARD;
+    glm::vec4 m_position;
+    glm::vec4 m_projection;
+    glm::vec4 m_view;
+    glm::vec4 m_model;
 };
 
 #endif // CAMERA_HPP

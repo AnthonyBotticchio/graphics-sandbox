@@ -227,6 +227,7 @@ namespace utils
 
     void time_block( std::function<void()> pred, const char* name )
     {
+        // #define TIME_BLOCK_QUIET
         #ifndef TIME_BLOCK_QUIET
         auto start = std::chrono::steady_clock::now();
         #endif

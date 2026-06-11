@@ -1,5 +1,7 @@
 #include "camera.hpp"
 
+#include "utils/utils.hpp"
+
 namespace
 {
     constexpr float YAW         = -90.0f;
@@ -11,6 +13,17 @@ namespace
 
 Camera::Camera()
 {
+    utils::time_block(
+        [this]()
+        {
+            const auto i = std::to_underlying( m_movement );
+        },
+        "Camera constructor" );
+}
+
+Camera::Movement Camera::getMovement() const
+{
+    return m_movement;
 }
 
 const glm::vec4& Camera::getProjectionMatrix() const

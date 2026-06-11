@@ -10,11 +10,6 @@
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 
-extern "C"
-{
-    #include <log.h>
-}
-
 namespace
 {
     int HEIGHT      = 750;
@@ -205,7 +200,6 @@ int main()
     }
 
     utils::display_device_info(); // Display startup info
-    utils::time_block( [] { int i, b, c; }, "Thingy" );
 
     // --- Shaders ---
 
@@ -356,12 +350,18 @@ int main()
 
     glEnable( GL_DEPTH_TEST );
 
+    Camera camera;
+    auto i = camera.getProjectionMatrix();
+
     // Render loop
     while( !glfwWindowShouldClose( window ) )
     {
+        #define RENDER_BLOCK_QUIET
+        #ifndef RENDER_BLOCK_QUIET
         utils::time_block( // Time the whole render block
             [&]()
             {
+        #endif
                 // Deterministic calculations before
                 float t   = glfwGetTime();
                 float dt  = t - lastFrame;
@@ -410,8 +410,10 @@ int main()
 
                 // Finish using our program. Only necessary if we are using multiple programs
                 // glUseProgram(0);
+        #ifndef RENDER_BLOCK_QUIET
             },
             "Render Block" );
+        #endif
     }
 
     // de-allocate all resources once they've outlived their purpose

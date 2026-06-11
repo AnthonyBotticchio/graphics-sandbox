@@ -1,8 +1,19 @@
 #ifndef DEFINES_HPP
 #define DEFINES_HPP
 
+// c++ std includes
+#include <concepts>
+#include <utility>
+
+// external
 #include <glm/glm.hpp>
 
+extern "C"
+{
+    #include <log.h>
+}
+
+// useful defines
 #define u8  uint8_t
 #define u16 uint16_t
 #define u32 uint32_t

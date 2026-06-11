@@ -11,10 +11,6 @@ if(UNIX)
     )
 endif()
 
-target_compile_definitions(${TARGET} PRIVATE
-    TIME_BLOCK_QUIET
-)
-
 # --- Dependencies ---
 
 target_link_libraries(${TARGET} PUBLIC
