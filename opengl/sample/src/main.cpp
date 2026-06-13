@@ -1,4 +1,5 @@
 #include "camera.hpp"
+#include "utils/timers.hpp"
 #include "utils/utils.hpp"
 
 #include <array>
@@ -356,64 +357,56 @@ int main()
     // Render loop
     while( !glfwWindowShouldClose( window ) )
     {
-        #define RENDER_BLOCK_QUIET
-        #ifndef RENDER_BLOCK_QUIET
-        utils::time_block( // Time the whole render block
-            [&]()
-            {
-        #endif
-                // Deterministic calculations before
-                float t   = glfwGetTime();
-                float dt  = t - lastFrame;
-                lastFrame = t;
-                glfwGetFramebufferSize( window, &WIDTH, &HEIGHT );
-                float ASPECT         = static_cast<float>( WIDTH ) / static_cast<float>( HEIGHT );
-                glm::mat4 view       = glm::lookAt( cameraPos, cameraFront + cameraPos, cameraUp );
-                glm::mat4 projection = glm::perspective( glm::radians( FOV ), ASPECT, 0.1f, 100.0f );
+        UTILS_SCOPED_TIMER( "Render Block" );
 
-                // Inputs: Check and call events and swap the buffers
-                glfwSwapBuffers( window );
-                glfwPollEvents();
-                process_input( window, dt );
+        // Deterministic calculations before
+        float t   = glfwGetTime();
+        float dt  = t - lastFrame;
+        lastFrame = t;
+        glfwGetFramebufferSize( window, &WIDTH, &HEIGHT );
+        float ASPECT         = static_cast<float>( WIDTH ) / static_cast<float>( HEIGHT );
+        glm::mat4 view       = glm::lookAt( cameraPos, cameraFront + cameraPos, cameraUp );
+        glm::mat4 projection = glm::perspective( glm::radians( FOV ), ASPECT, 0.1f, 100.0f );
 
-                // Colors and Depth
-                glClearColor( 0.2f, 0.3f, 0.3f, 1.0f );
-                glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+        // Inputs: Check and call events and swap the buffers
+        glfwSwapBuffers( window );
+        glfwPollEvents();
+        process_input( window, dt );
 
-                // Bind multiple textures
-                glActiveTexture( GL_TEXTURE0 );
-                glBindTexture( GL_TEXTURE_2D, wall_tex );
-                glActiveTexture( GL_TEXTURE1 );
-                glBindTexture( GL_TEXTURE_2D, saul_tex );
+        // Colors and Depth
+        glClearColor( 0.2f, 0.3f, 0.3f, 1.0f );
+        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-                // Set dynamically changing uniforms
-                glUniform1f( thetaLoc, theta );
-                glUniform1f( timeLoc, t );
-                glUniform1f( mix_paramLoc, mix_param );
-                glUniformMatrix4fv( viewLoc, 1, GL_FALSE, glm::value_ptr( view ) );
-                glUniformMatrix4fv( projLoc, 1, GL_FALSE, glm::value_ptr( projection ) );
+        // Bind multiple textures
+        glActiveTexture( GL_TEXTURE0 );
+        glBindTexture( GL_TEXTURE_2D, wall_tex );
+        glActiveTexture( GL_TEXTURE1 );
+        glBindTexture( GL_TEXTURE_2D, saul_tex );
 
-                // Draw boxes
-                glBindVertexArray( vao );
-                for( size_t i{ cubePositions.size() }; i-- > 0; )
-                {
-                    glm::mat4 model = glm::translate( I4, cubePositions[i] );
-                    float angle     = 20.0f * i; // Provide a random angle
-                    model           = glm::rotate( model, glm::radians( angle ), glm::vec3( 1.0f, 0.3f, 0.5f ) );
-                    glUniformMatrix4fv( modelLoc, 1, GL_FALSE, glm::value_ptr( model ) );
-                    glDrawArrays( GL_TRIANGLES, 0, 36 );
-                }
+        // Set dynamically changing uniforms
+        glUniform1f( thetaLoc, theta );
+        glUniform1f( timeLoc, t );
+        glUniform1f( mix_paramLoc, mix_param );
+        glUniformMatrix4fv( viewLoc, 1, GL_FALSE, glm::value_ptr( view ) );
+        glUniformMatrix4fv( projLoc, 1, GL_FALSE, glm::value_ptr( projection ) );
 
-                #ifdef __APPLE__
-                glFinish(); // optional to synchronize draw calls. Reduces stuttering on OSX
-                #endif
+        // Draw boxes
+        glBindVertexArray( vao );
+        for( size_t i{ cubePositions.size() }; i-- > 0; )
+        {
+            glm::mat4 model = glm::translate( I4, cubePositions[i] );
+            float angle     = 20.0f * i; // Provide a random angle
+            model           = glm::rotate( model, glm::radians( angle ), glm::vec3( 1.0f, 0.3f, 0.5f ) );
+            glUniformMatrix4fv( modelLoc, 1, GL_FALSE, glm::value_ptr( model ) );
+            glDrawArrays( GL_TRIANGLES, 0, 36 );
+        }
 
-                // Finish using our program. Only necessary if we are using multiple programs
-                // glUseProgram(0);
-        #ifndef RENDER_BLOCK_QUIET
-            },
-            "Render Block" );
-        #endif
+#ifdef __APPLE__
+        glFinish(); // optional to synchronize draw calls. Reduces stuttering on OSX
+#endif
+
+        // Finish using our program. Only necessary if we are using multiple programs
+        // glUseProgram(0);
     }
 
     // de-allocate all resources once they've outlived their purpose
