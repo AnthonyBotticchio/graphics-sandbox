@@ -1,10 +1,9 @@
 #include "utils/utils.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "utils/stb_image.h"
+#include "stb_image.h"
 
 #include <chrono>
-#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -28,14 +27,14 @@
 
 extern "C"
 {
-    #include <log.h>
+#include <log.h>
 }
 
-namespace
+namespace utils
 {
     std::filesystem::path get_runtime_dir()
     {
-        #ifdef __APPLE__
+#ifdef __APPLE__
         char buffer[1024];
         uint32_t size = sizeof( buffer );
         if( _NSGetExecutablePath( buffer, &size ) == 0 )
@@ -49,9 +48,9 @@ namespace
             log_error( "Could not find current executable path." );
             return "";
         }
-        #endif
+#endif
 
-        #ifdef __linux__
+#ifdef __linux__
         char buffer[1024];
         if( readlink( "/proc/self/exe", buffer, sizeof( buffer ) ) != 0 )
         {
@@ -64,9 +63,9 @@ namespace
             log_error( "Could not find current executable path." );
             return "";
         }
-        #endif
+#endif
 
-        #ifdef _WIN32
+#ifdef _WIN32
         wchar_t buffer[MAX_PATH];
         DWORD size = GetModuleFileNameW( nullptr, buffer, MAX_PATH );
 
@@ -81,7 +80,7 @@ namespace
             log_error( "Could not find current executable path." );
             return "";
         }
-        #endif
+#endif
         log_error( "Unsupported platform." );
         return "";
     }
@@ -91,25 +90,6 @@ namespace
         std::string texture_path = get_runtime_dir().append( "textures" ).append( fileName ).string();
         log_debug( "Returning texture path: %s", texture_path.c_str() );
         return texture_path;
-    }
-} // namespace
-
-namespace utils
-{
-    std::string load_shader_source( const std::string& fileName )
-    {
-        std::string shader_path = get_runtime_dir().append( "shader" ).append( fileName ).string();
-        std::ifstream file( shader_path, std::ios::in );
-
-        if( !file )
-        {
-            log_error( "Failed opening file: %s", shader_path.c_str() );
-            return "";
-        }
-
-        std::ostringstream buffer;
-        buffer << file.rdbuf();
-        return buffer.str();
     }
 
     void display_device_info()
@@ -125,36 +105,6 @@ namespace utils
         // make sure the viewport matches the new window dimensions; note that width and
         // height will be significantly larger than specified on retina displays.
         glViewport( 0, 0, width, height );
-    }
-
-    GLuint gen_shaders( const GLenum type, const GLsizei count, const char* const* shaderSource )
-    {
-        GLuint shader = glCreateShader( type );
-        glShaderSource( shader, count, shaderSource, NULL );
-        glCompileShader( shader );
-
-        if( !shader_compile_check( shader ) )
-            return 0;
-
-        return shader;
-    }
-
-    GLuint gen_shader_program( const std::vector<GLuint>& shaders )
-    {
-        GLuint program = glCreateProgram();
-
-        for( const GLuint& shader : shaders )
-            glAttachShader( program, shader ); // Delete shader objects after linking
-
-        glLinkProgram( program );
-
-        for( const GLuint& shader : shaders )
-            glDeleteShader( shader ); // Delete shader objects after linking
-
-        if( !shader_link_check( program ) )
-            return 0;
-
-        return program;
     }
 
     void gen_texture( GLuint& texture, const std::string& path )
@@ -195,49 +145,19 @@ namespace utils
         glBindTexture( GL_TEXTURE_2D, 0 );
     }
 
-    bool shader_compile_check( const GLuint shader )
-    {
-        int success;
-        char infoLog[512];
-        glGetShaderiv( shader, GL_COMPILE_STATUS, &success );
-
-        if( !success )
-        {
-            glGetShaderInfoLog( shader, sizeof( infoLog ), NULL, infoLog );
-            log_error( "SHADER::COMPILATION_FAILED:\n%s", infoLog );
-        }
-
-        return success;
-    }
-
-    bool shader_link_check( const GLuint program )
-    {
-        int success;
-        char infoLog[512];
-        glGetProgramiv( program, GL_LINK_STATUS, &success );
-
-        if( !success )
-        {
-            glGetProgramInfoLog( program, sizeof( infoLog ), NULL, infoLog );
-            log_error( "SHADER::LINK_FAILED:\n%s", infoLog );
-        }
-
-        return success;
-    }
-
     void time_block( std::function<void()> pred, const char* name )
     {
-        // #define TIME_BLOCK_QUIET
-        #ifndef TIME_BLOCK_QUIET
+// #define TIME_BLOCK_QUIET
+#ifndef TIME_BLOCK_QUIET
         auto start = std::chrono::steady_clock::now();
-        #endif
+#endif
 
         pred();
 
-        #ifndef TIME_BLOCK_QUIET
+#ifndef TIME_BLOCK_QUIET
         auto end      = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration<double, std::milli>( end - start ); // Fractional milliseconds
         log_trace( "%s - Time taken: %.3f ms", name, duration.count() );
-        #endif
+#endif
     }
 } // namespace utils

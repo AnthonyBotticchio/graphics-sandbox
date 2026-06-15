@@ -1,4 +1,5 @@
 #include "camera.hpp"
+#include "shader.hpp"
 #include "utils/timers.hpp"
 #include "utils/utils.hpp"
 
@@ -204,22 +205,8 @@ int main()
 
     // --- Shaders ---
 
-    const std::string vertex_source   = utils::load_shader_source( "vertex.vert" );
-    const std::string fragment_source = utils::load_shader_source( "fragment.frag" );
-
-    const char* vertex_source_ptr   = vertex_source.c_str();
-    const char* fragment_source_ptr = fragment_source.c_str();
-
-    log_debug( "Found Vertex Shader:\n%s", vertex_source_ptr );
-    log_debug( "Found Fragment Shader:\n%s", fragment_source_ptr );
-
-    const GLuint vertex_shader   = utils::gen_shaders( GL_VERTEX_SHADER, 1, &vertex_source_ptr );
-    const GLuint fragment_shader = utils::gen_shaders( GL_FRAGMENT_SHADER, 1, &fragment_source_ptr );
-
-    const std::vector<GLuint> shaders = { vertex_shader, fragment_shader }; // Must be in order
-    const GLuint shader_prog          = utils::gen_shader_program( shaders );
-
-    glUseProgram( shader_prog );
+    Shader myShader( "vertex.vert", "fragment.frag" );
+    Camera camera{};
 
     // --- Setup ---
 
@@ -340,24 +327,16 @@ int main()
     utils::gen_texture( saul_tex, "saul.jpg" );
 
     // Constant Uniforms
-    GLuint thetaLoc     = glGetUniformLocation( shader_prog, "theta" );
-    GLuint timeLoc      = glGetUniformLocation( shader_prog, "t" );
-    GLuint mix_paramLoc = glGetUniformLocation( shader_prog, "mix_param" );
-    GLuint modelLoc     = glGetUniformLocation( shader_prog, "model" );
-    GLuint viewLoc      = glGetUniformLocation( shader_prog, "view" );
-    GLuint projLoc      = glGetUniformLocation( shader_prog, "proj" );
-    glUniform1i( glGetUniformLocation( shader_prog, "texture1" ), 0 ); // set texture1 to texture unit 0
-    glUniform1i( glGetUniformLocation( shader_prog, "texture2" ), 1 ); // set texture2 to texture unit 1
+    myShader.use();
+    myShader.setUniform( "texture1", 0 );
+    myShader.setUniform( "texture2", 1 );
 
     glEnable( GL_DEPTH_TEST );
-
-    Camera camera;
-    auto i = camera.getProjectionMatrix();
 
     // Render loop
     while( !glfwWindowShouldClose( window ) )
     {
-        UTILS_SCOPED_TIMER( "Render Block" );
+        // UTILS_SCOPED_TIMER( "Render Block" )
 
         // Deterministic calculations before
         float t   = glfwGetTime();
@@ -384,11 +363,11 @@ int main()
         glBindTexture( GL_TEXTURE_2D, saul_tex );
 
         // Set dynamically changing uniforms
-        glUniform1f( thetaLoc, theta );
-        glUniform1f( timeLoc, t );
-        glUniform1f( mix_paramLoc, mix_param );
-        glUniformMatrix4fv( viewLoc, 1, GL_FALSE, glm::value_ptr( view ) );
-        glUniformMatrix4fv( projLoc, 1, GL_FALSE, glm::value_ptr( projection ) );
+        myShader.setUniform( "theta", theta );
+        myShader.setUniform( "t", t );
+        myShader.setUniform( "mix_param", mix_param );
+        myShader.setUniform( "view", view );
+        myShader.setUniform( "proj", projection );
 
         // Draw boxes
         glBindVertexArray( vao );
@@ -397,7 +376,7 @@ int main()
             glm::mat4 model = glm::translate( I4, cubePositions[i] );
             float angle     = 20.0f * i; // Provide a random angle
             model           = glm::rotate( model, glm::radians( angle ), glm::vec3( 1.0f, 0.3f, 0.5f ) );
-            glUniformMatrix4fv( modelLoc, 1, GL_FALSE, glm::value_ptr( model ) );
+            myShader.setUniform( "model", model );
             glDrawArrays( GL_TRIANGLES, 0, 36 );
         }
 
@@ -415,7 +394,7 @@ int main()
     glDeleteVertexArrays( 1, &vao );
     glDeleteBuffers( 1, &vbo );
     glDeleteBuffers( 1, &ebo );
-    glDeleteProgram( shader_prog );
+    glDeleteProgram( myShader.getProgram() );
     glfwDestroyWindow( window );
 
     glfwTerminate();

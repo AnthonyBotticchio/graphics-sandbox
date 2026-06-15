@@ -1,7 +1,7 @@
 #include "camera.hpp"
 
-#include "utils/utils.hpp"
 #include "utils/timers.hpp"
+#include "utils/utils.hpp"
 
 namespace
 {
@@ -14,7 +14,7 @@ namespace
 
 Camera::Camera()
 {
-    UTILS_SCOPED_TIMER( "Camera Constructor" );
+    UTILS_SCOPED_TIMER( "Camera Constructor" )
 
     const auto i = std::to_underlying( m_movement );
 }
