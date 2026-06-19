@@ -4,8 +4,6 @@
 #include "stb_image.h"
 
 #include <chrono>
-#include <fstream>
-#include <sstream>
 
 #ifdef __APPLE__
     #include <mach-o/dyld.h>
@@ -88,7 +86,6 @@ namespace utils
     std::string get_texture_path( const std::string& fileName )
     {
         std::string texture_path = get_runtime_dir().append( "textures" ).append( fileName ).string();
-        log_debug( "Returning texture path: %s", texture_path.c_str() );
         return texture_path;
     }
 
@@ -151,9 +148,7 @@ namespace utils
 #ifndef TIME_BLOCK_QUIET
         auto start = std::chrono::steady_clock::now();
 #endif
-
         pred();
-
 #ifndef TIME_BLOCK_QUIET
         auto end      = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration<double, std::milli>( end - start ); // Fractional milliseconds

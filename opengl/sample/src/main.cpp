@@ -5,7 +5,6 @@
 
 #include <array>
 #include <string>
-#include <vector>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -16,8 +15,8 @@ namespace
 {
     int HEIGHT      = 750;
     int WIDTH       = 1000;
-    double lastX    = WIDTH / 2;
-    double lastY    = HEIGHT / 2;
+    double lastX    = static_cast<double>( WIDTH ) / 2.0;
+    double lastY    = static_cast<double>( HEIGHT ) / 2.0;
     bool firstMouse = true;
     float yaw       = 0.0;
     float pitch     = 0.0;
@@ -336,7 +335,7 @@ int main()
     // Render loop
     while( !glfwWindowShouldClose( window ) )
     {
-        // UTILS_SCOPED_TIMER( "Render Block" )
+        UTILS_SCOPED_TIMER( "Render Block" )
 
         // Deterministic calculations before
         float t   = glfwGetTime();
