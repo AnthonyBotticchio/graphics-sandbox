@@ -190,7 +190,8 @@ bool setup_logger( const char* log_path, int level, bool set_quiet )
 
     if( log_path != NULL )
     {
-        FILE* f = fopen( log_path, "w" );
+        FILE* f;
+        fopen_s( &f, log_path, "w" );
 
         if( f == NULL )
         {

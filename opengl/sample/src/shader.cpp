@@ -13,9 +13,9 @@ Shader::Shader( const char* vertexPath, const char* fragmentPath )
     const std::string fragment_source_str = loadShaderSource( fragmentPath );
     const char* vertex_source             = vertex_source_str.c_str();
     const char* fragment_source           = fragment_source_str.c_str();
-    const GLuint vertex_shader            = genShader( GL_VERTEX_SHADER, 1, &vertex_source );
-    const GLuint fragment_shader          = genShader( GL_FRAGMENT_SHADER, 1, &fragment_source );
-    m_program                             = genShaderProgram( { vertex_shader, fragment_shader } ); // Must be in order
+    const GLuint vertex_shader            = createShader( GL_VERTEX_SHADER, 1, &vertex_source );
+    const GLuint fragment_shader          = createShader( GL_FRAGMENT_SHADER, 1, &fragment_source );
+    m_program                             = createShaderProgram( { vertex_shader, fragment_shader } ); // Must be in order
 }
 
 const GLuint Shader::getProgram() const
@@ -99,7 +99,7 @@ std::string Shader::loadShaderSource( const char* fileName )
     return buffer.str();
 }
 
-GLuint Shader::genShader( const GLenum type, const GLsizei count, const char* const* shaderSource )
+GLuint Shader::createShader( const GLenum type, const GLsizei count, const char* const* shaderSource )
 {
     GLuint shader = glCreateShader( type );
     glShaderSource( shader, count, shaderSource, NULL );
@@ -141,7 +141,7 @@ bool Shader::shaderLinkCheck( const GLuint program )
     return success;
 }
 
-GLuint Shader::genShaderProgram( const std::vector<GLuint>& shaders )
+GLuint Shader::createShaderProgram( const std::vector<GLuint>& shaders )
 {
     GLuint program = glCreateProgram();
 

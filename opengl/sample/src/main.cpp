@@ -1,9 +1,11 @@
 #include "camera.hpp"
 #include "shader.hpp"
+#include "utils/spsc_queue.hpp"
 #include "utils/timers.hpp"
 #include "utils/utils.hpp"
 
 #include <array>
+#include <log.h>
 #include <string>
 
 #include <GL/glew.h>
@@ -164,8 +166,7 @@ namespace
 int main()
 {
     // --- Init ---
-
-    setup_logger( NULL, LOG_DEBUG, true );
+    setup_logger( NULL, LOG_DEBUG, false );
 
     if( !glfwInit() )
     {
@@ -332,10 +333,21 @@ int main()
 
     glEnable( GL_DEPTH_TEST );
 
+    SPSCQueue<int, 3> q;
+    q.push( 1 );
+    q.push( 3 );
+
+    int res1, res2;
+
+    q.pop( res2 );
+    q.pop( res1 );
+
+    log_info( "res1: %d, res2: %d", res1, res2 );
+
     // Render loop
     while( !glfwWindowShouldClose( window ) )
     {
-        UTILS_SCOPED_TIMER( "Render Block" )
+        // UTILS_SCOPED_TIMER( "Render Block" )
 
         // Deterministic calculations before
         float t   = glfwGetTime();

@@ -45,7 +45,7 @@ class Shader
      * Uniform locations are cached per shader program to avoid repeated driver string lookups in
      * the render loop. A value of -1 is valid cache data and means the uniform was not found or was
      * optimized out by the shader compiler.
-     * 
+     *
      * Improves uniform lookup performance.
      *
      * @param name Uniform variable name in the linked shader program.
@@ -54,13 +54,13 @@ class Shader
     GLint uniformCacheLookup( const std::string& name ) const;
 
     std::string loadShaderSource( const char* fileName );
-    GLuint genShader( const GLenum type, const GLsizei count, const char* const* shaderSource );
+    GLuint createShader( const GLenum type, const GLsizei count, const char* const* shaderSource );
     bool shaderCompileCheck( const GLuint shader );
     bool shaderLinkCheck( const GLuint program );
-    GLuint genShaderProgram( const std::vector<GLuint>& shaders );
+    GLuint createShaderProgram( const std::vector<GLuint>& shaders );
 
-    GLuint m_program;
     mutable std::unordered_map<std::string, GLint> m_uniformCache;
+    GLuint m_program;
 };
 
 #endif // SHADER_HPP
