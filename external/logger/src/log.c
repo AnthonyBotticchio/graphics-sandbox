@@ -190,9 +190,12 @@ bool setup_logger( const char* log_path, int level, bool set_quiet )
 
     if( log_path != NULL )
     {
+#ifdef _WIN32
         FILE* f;
         fopen_s( &f, log_path, "w" );
-
+#else
+        FILE* f = fopen( log_path, "w" );
+#endif
         if( f == NULL )
         {
             fprintf( stderr, "Failed to open log file: %s\n", log_path );

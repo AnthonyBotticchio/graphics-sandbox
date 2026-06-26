@@ -331,14 +331,19 @@ int main()
 
     glEnable( GL_DEPTH_TEST );
 
-    SPSCQueue<int, 3> q;
-    q.push( 1 );
-    q.push( 3 );
+    bool ok = true;
+    SPSCQueue<int, 4> q;
+    ok &= q.push( 10 );
+    ok &= q.push( 21 );
+    if( !ok )
+        log_fatal( "push operations failed" );
 
+    ok = true;
     int res1, res2;
-
-    q.pop( res2 );
-    q.pop( res1 );
+    ok &= q.pop( res2 );
+    ok &= q.pop( res1 );
+    if( !ok )
+        log_fatal( "pop operations failed" );
 
     log_info( "res1: %d, res2: %d", res1, res2 );
 
