@@ -159,8 +159,6 @@ namespace
             FOV -= 0.1;
         }
     }
-
-
 } // namespace
 
 int main()
