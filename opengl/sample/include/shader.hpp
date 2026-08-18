@@ -1,9 +1,6 @@
 #ifndef SHADER_HPP
 #define SHADER_HPP
 
-#include <string>
-#include <unordered_map>
-
 #include <GL/glew.h>
 
 class Shader
@@ -12,20 +9,20 @@ class Shader
     Shader( const char* vertexPath, const char* fragmentPath );
     virtual ~Shader() = default;
 
-    const GLuint getProgram() const;
+    GLuint getProgram() const;
 
     void use() const;
 
     template<std::integral T>
     void setUniform( const std::string& name, T value ) const
     {
-        glUniform1i( glGetUniformLocation( m_program, name.c_str() ), value );
+        glUniform1i( uniformCacheLookup( name ), value );
     }
 
     template<std::floating_point T>
     void setUniform( const std::string& name, T value ) const
     {
-        glUniform1f( glGetUniformLocation( m_program, name.c_str() ), value );
+        glUniform1f( uniformCacheLookup( name ), value );
     }
 
     void setUniform( const std::string& name, const glm::vec2& value ) const;

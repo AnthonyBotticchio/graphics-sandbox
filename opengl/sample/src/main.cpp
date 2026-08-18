@@ -4,14 +4,12 @@
 #include "utils/timers.hpp"
 #include "utils/utils.hpp"
 
-#include <array>
-#include <log.h>
-#include <string>
+#include <memory>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/ext.hpp>
-#include <glm/glm.hpp>
+
 
 namespace
 {
@@ -20,9 +18,6 @@ namespace
     double lastX    = static_cast<double>( WIDTH ) / 2.0;
     double lastY    = static_cast<double>( HEIGHT ) / 2.0;
     bool firstMouse = true;
-    float yaw       = 0.0;
-    float pitch     = 0.0;
-    float FOV       = 60.0f;
     float dX        = 0.00f;
     float dY        = 0.00f;
     float dZ        = 0.00f;
@@ -31,62 +26,46 @@ namespace
     float mix_param = 0.00f;
     float lastFrame = 0.0f; // Time of last frame
 
-    glm::vec3 cameraPos   = glm::vec3( 0.0f, 0.0f, 3.0f );
-    glm::vec3 cameraFront = glm::vec3( 0.0f, 0.0f, -1.0f );
-    glm::vec3 cameraUp    = glm::vec3( 0.0f, 1.0f, 0.0f );
-
     static inline void mouse_callback( GLFWwindow* window, double x, double y )
     {
-        // if( firstMouse )
-        // {
-        //     lastX      = x;
-        //     lastY      = y;
-        //     firstMouse = false;
-        // }
+        auto* camera = static_cast<Camera*>( glfwGetWindowUserPointer( window ) );
+        if( camera == nullptr )
+            return;
 
-        float x_offset = x - lastX;
-        float y_offset = lastY - y; // reversed since y-coordinates range from bottom to top
-        lastX          = x;
-        lastY          = y;
-
-        constexpr float sensitivity = 0.1f;
-        x_offset *= sensitivity;
-        y_offset *= sensitivity;
-
-        yaw += x_offset;
-        pitch += y_offset;
-
-        if( pitch > 89.0f )
+        if( firstMouse )
         {
-            pitch = 89.0f;
-        }
-        else if( pitch < -89.0f )
-        {
-            pitch = -89.0f;
+            lastX      = x;
+            lastY      = y;
+            firstMouse = false;
         }
 
-        // log_trace( "Captured mouse callback. X: %f. Y: %f", lastX, lastY );
+        auto x_offset = static_cast<float>( x - lastX );
+        auto y_offset = static_cast<float>( lastY - y ); // reversed since y-coordinates range from bottom to top
+        lastX         = x;
+        lastY         = y;
 
-        float c_yaw   = cos( glm::radians( yaw ) );
-        float s_yaw   = sin( glm::radians( yaw ) );
-        float c_pitch = cos( glm::radians( pitch ) );
-        float s_pitch = sin( glm::radians( pitch ) );
-        cameraFront   = glm::normalize( glm::vec3( c_yaw * c_pitch, s_pitch, s_yaw * c_pitch ) );
+        camera->processMouseMovement( x_offset, y_offset );
     }
 
-    static inline void process_input( GLFWwindow* window, float dt )
+    static inline void scroll_callback( GLFWwindow* window, [[maybe_unused]] double xOffset, double yOffset )
     {
-        float camera_speed;
+        auto* camera = static_cast<Camera*>( glfwGetWindowUserPointer( window ) );
+        if( camera != nullptr )
+            camera->processMouseScroll( static_cast<float>( yOffset ) );
+    }
+
+    static inline void process_input( GLFWwindow* window, Camera& camera, float dt )
+    {
         float rotation_speed;
+        float movement_dt = dt;
 
         if( glfwGetKey( window, GLFW_KEY_LEFT_SHIFT ) == GLFW_PRESS )
         {
-            camera_speed   = 5.0f * dt;
+            movement_dt *= 2.0f; // Twice as fast when pressing 'sprint'
             rotation_speed = 50.0f * dt;
         }
         else if( glfwGetKey( window, GLFW_KEY_LEFT_SHIFT ) == GLFW_RELEASE )
         {
-            camera_speed   = 2.5f * dt;
             rotation_speed = 25.0f * dt;
         }
 
@@ -97,66 +76,57 @@ namespace
 
         if( glfwGetKey( window, GLFW_KEY_W ) == GLFW_PRESS )
         {
-            cameraPos += camera_speed * cameraFront;
+            camera.processKeyboard( Camera::Movement::FORWARD, movement_dt );
         }
         else if( glfwGetKey( window, GLFW_KEY_S ) == GLFW_PRESS )
         {
-            cameraPos -= camera_speed * cameraFront;
+            camera.processKeyboard( Camera::Movement::BACKWARD, movement_dt );
         }
 
         if( glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS )
         {
-            cameraPos -= camera_speed * glm::normalize( glm::cross( cameraFront, cameraUp ) );
+            camera.processKeyboard( Camera::Movement::LEFT, movement_dt );
         }
         else if( glfwGetKey( window, GLFW_KEY_D ) == GLFW_PRESS )
         {
-            cameraPos += camera_speed * glm::normalize( glm::cross( cameraFront, cameraUp ) );
+            camera.processKeyboard( Camera::Movement::RIGHT, movement_dt );
         }
 
         if( glfwGetKey( window, GLFW_KEY_E ) == GLFW_PRESS )
         {
-            cameraPos += camera_speed * cameraUp;
+            camera.processKeyboard( Camera::Movement::UP, movement_dt );
         }
         else if( glfwGetKey( window, GLFW_KEY_Q ) == GLFW_PRESS )
         {
-            cameraPos -= camera_speed * cameraUp;
+            camera.processKeyboard( Camera::Movement::DOWN, movement_dt );
         }
 
         if( glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_PRESS )
         {
-            theta -= rotation_speed * ( 0.05 + press_dur );
-            press_dur += 0.001;
+            theta -= rotation_speed * ( 0.05f + press_dur );
+            press_dur += 0.001f;
         }
         else if( glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_PRESS )
         {
-            theta += rotation_speed * ( 0.05 + press_dur );
-            press_dur += 0.001;
+            theta += rotation_speed * ( 0.05f + press_dur );
+            press_dur += 0.001f;
         }
         else if( glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_RELEASE )
         {
-            press_dur = 0.0;
+            press_dur = 0.0f;
         }
         else if( glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_RELEASE )
         {
-            press_dur = 0.0;
+            press_dur = 0.0f;
         }
 
         if( glfwGetKey( window, GLFW_KEY_UP ) == GLFW_PRESS )
         {
-            mix_param += 0.01;
+            mix_param += 0.01f;
         }
         else if( glfwGetKey( window, GLFW_KEY_DOWN ) == GLFW_PRESS )
         {
-            mix_param -= 0.01;
-        }
-
-        if( glfwGetKey( window, GLFW_KEY_X ) == GLFW_PRESS )
-        {
-            FOV += 0.1;
-        }
-        else if( glfwGetKey( window, GLFW_KEY_Z ) == GLFW_PRESS )
-        {
-            FOV -= 0.1;
+            mix_param -= 0.01f;
         }
     }
 } // namespace
@@ -188,8 +158,12 @@ int main()
     }
     glfwMakeContextCurrent( window );
     glfwSetFramebufferSizeCallback( window, utils::framebuffer_size_callback );
+
+    std::unique_ptr<Camera> camera = std::make_unique<Camera>( glm::vec3( 0.0f, 0.0f, 3.0f ) );
+    glfwSetWindowUserPointer( window, camera.get() );
     glfwSetInputMode( window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
     glfwSetCursorPosCallback( window, mouse_callback );
+    glfwSetScrollCallback( window, scroll_callback );
 
     if( glewInit() != GLEW_OK )
     {
@@ -204,7 +178,6 @@ int main()
     // --- Shaders ---
 
     Shader myShader( "vertex.vert", "fragment.frag" );
-    Camera camera{};
 
     // --- Setup ---
 
@@ -353,18 +326,18 @@ int main()
         // UTILS_SCOPED_TIMER( "Render Block" )
 
         // Deterministic calculations before
-        float t   = glfwGetTime();
-        float dt  = t - lastFrame;
+        auto t    = static_cast<float>( glfwGetTime() );
+        auto dt   = t - lastFrame;
         lastFrame = t;
         glfwGetFramebufferSize( window, &WIDTH, &HEIGHT );
-        float ASPECT         = static_cast<float>( WIDTH ) / static_cast<float>( HEIGHT );
-        glm::mat4 view       = glm::lookAt( cameraPos, cameraFront + cameraPos, cameraUp );
-        glm::mat4 projection = glm::perspective( glm::radians( FOV ), ASPECT, 0.1f, 100.0f );
+        auto ASPECT                 = static_cast<float>( WIDTH ) / static_cast<float>( HEIGHT );
+        const glm::mat4& view       = camera->getViewMatrix();
+        const glm::mat4& projection = camera->getProjectionMatrix( ASPECT );
 
         // Inputs: Check and call events and swap the buffers
         glfwSwapBuffers( window );
         glfwPollEvents();
-        process_input( window, dt );
+        process_input( window, *camera, dt );
 
         // Colors and Depth
         glClearColor( 0.2f, 0.3f, 0.3f, 1.0f );

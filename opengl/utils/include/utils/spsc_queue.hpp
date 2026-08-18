@@ -10,14 +10,29 @@ extern "C"
 #include <log.h>
 }
 
-/* Capacity = 4 (size = 1 << 4 = 0x0001 0000)
- * Capacity - 1 = 0x0000 1111
- * Index = 2 (incl. 0) -> 0x0000 0100
- * if((1 << Capcity) - 1 & (1 << new_idx) != 0x0); then idx.store(new_idx, std::memory_order::release);
- * new_idx = m_tail & 1 << (Capacity - 1) (0x0001 0000)
- *                        ^HEAD
- * if((1 << Capacity) - 1 & (1 << new_idx) != 0x0) -> false; then return false;
- */
+enum class QueueType
+{
+    SPSC,
+    SPMC,
+    MPSC,
+    MPMC
+};
+
+template<typename DataType, QueueType Queueing>
+class Queue
+{
+
+  private:
+    static constexpr size_t Align = std::hardware_destructive_interference_size; // Avoids false sharing and improves cache coherency
+
+    alignas( Align ) std::atomic<size_t> m_head = 0;
+    alignas( Align ) std::atomic<size_t> m_tail = 0;
+    alignas( Align ) std::atomic<size_t> m_size = 0;       // If its dynamic
+    alignas( Align ) std::byte* m_storage       = nullptr; // Object memory size, we'd want to constrain this if necessary
+
+    int m_capacity = 0;
+    int m_indexEnd;
+};
 
 /// @brief lock-free single-producer single-consumer queue
 /// @param Capacity must be a power of two
@@ -62,9 +77,13 @@ class SPSCQueue
 
   private:
     static constexpr size_t BitMask = Capacity - 1;
+    static constexpr size_t Align   = std::hardware_destructive_interference_size; // Avoids false sharing and improves cache coherency
 
     std::array<T, Capacity> m_buffer;
-    alignas( std::hardware_destructive_interference_size ) std::atomic<size_t> m_head = 0;
-    alignas( std::hardware_destructive_interference_size ) std::atomic<size_t> m_tail = 0;
+    alignas( Align ) std::atomic<size_t> m_head = 0;
+    alignas( Align ) std::atomic<size_t> m_tail = 0;
+    alignas( Align ) std::atomic<size_t> m_size = 0;       // If its dynamic
+    alignas( Align ) std::byte* m_storage       = nullptr; // Object memory size, we'd want to constrain this if necessary
 };
+
 #endif // SPSC_QUEUE_HPP

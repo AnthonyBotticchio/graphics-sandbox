@@ -141,18 +141,4 @@ namespace utils
         // Unbind texture
         glBindTexture( GL_TEXTURE_2D, 0 );
     }
-
-    void time_block( std::function<void()> pred, const char* name )
-    {
-// #define TIME_BLOCK_QUIET
-#ifndef TIME_BLOCK_QUIET
-        auto start = std::chrono::steady_clock::now();
-#endif
-        pred();
-#ifndef TIME_BLOCK_QUIET
-        auto end      = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration<double, std::milli>( end - start ); // Fractional milliseconds
-        log_trace( "%s - Time taken: %.3f ms", name, duration.count() );
-#endif
-    }
 } // namespace utils

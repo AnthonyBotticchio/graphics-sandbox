@@ -22,6 +22,9 @@
 
 #include "log.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 #define MAX_CALLBACKS 32
 
 typedef struct
@@ -133,8 +136,10 @@ static void init_event( log_Event* ev, void* udata )
     if( !ev->time )
     {
         time_t t = time( NULL );
-        ev->time = localtime( &t );
+        ev->time = malloc( sizeof( struct tm ) );
+        localtime_s( ev->time, &t );
     }
+
     ev->udata = udata;
 }
 

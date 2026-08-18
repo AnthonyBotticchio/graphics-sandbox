@@ -1,8 +1,11 @@
 {
-  "dependencies": [
-    "glew",
-    "glfw3",
-    "glm",
-    "opengl"
-  ]
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "name": "graphics-sandbox",
+    "version": "0.1.0",
+    "dependencies": [
+        "glew",
+        "glfw3",
+        "glm",
+        "opengl"
+    ]
 }

@@ -15,8 +15,8 @@ extern "C"
     #define UTILS_DETAIL_CONCAT_INNER( a, b ) a##b
     #define UTILS_DETAIL_CONCAT( a, b )       UTILS_DETAIL_CONCAT_INNER( a, b )
     #define UTILS_SCOPED_TIMER( name )                                                                                                     \
-        [[maybe_unused]] utils::ScopedTimer UTILS_DETAIL_CONCAT( ScopedTimer_,                                                             \
-                                                                 __LINE__ )( name ); // Creates a scoped timer with name 'name'
+        [[maybe_unused]] const utils::ScopedTimer UTILS_DETAIL_CONCAT( ScopedTimer_,                                                       \
+                                                                       __LINE__ )( name ); // Creates a scoped timer with name 'name'
 #else
     #define UTILS_SCOPED_TIMER( name )
 #endif
@@ -35,7 +35,7 @@ namespace utils
             m_start = std::chrono::steady_clock::now();
         }
 
-        ~ScopedTimer()
+        virtual ~ScopedTimer()
         {
             auto end      = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration<double, std::milli>( end - m_start ); // Fractional milliseconds

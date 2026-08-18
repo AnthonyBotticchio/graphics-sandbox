@@ -7,8 +7,6 @@
 
 Shader::Shader( const char* vertexPath, const char* fragmentPath )
 {
-    UTILS_SCOPED_TIMER( "Shader Constructor" )
-
     const std::string vertex_source_str   = loadShaderSource( vertexPath );
     const std::string fragment_source_str = loadShaderSource( fragmentPath );
     const char* vertex_source             = vertex_source_str.c_str();
@@ -18,7 +16,7 @@ Shader::Shader( const char* vertexPath, const char* fragmentPath )
     m_program                             = createShaderProgram( { vertex_shader, fragment_shader } ); // Must be in order
 }
 
-const GLuint Shader::getProgram() const
+GLuint Shader::getProgram() const
 {
     return m_program;
 }
@@ -75,8 +73,10 @@ void Shader::setUniform( const std::string& name, const glm::mat4& mat ) const
 
 GLint Shader::uniformCacheLookup( const std::string& name ) const
 {
-    if( auto iter = m_uniformCache.find( name ); iter != m_uniformCache.end() )
+    if( auto iter = m_uniformCache.find( name ); iter != std::end( m_uniformCache ) )
+    {
         return iter->second;
+    }
 
     GLint location = glGetUniformLocation( m_program, name.c_str() );
     m_uniformCache.emplace( name, location ); // Add location to cache

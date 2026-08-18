@@ -20,8 +20,6 @@ namespace utils
     void framebuffer_size_callback( GLFWwindow* window, int width, int height );
 
     void gen_texture( GLuint& texture, const std::string& path );
-
-    void time_block( std::function<void()> pred, const char* name = "Unknown" );
 } // namespace utils
 
 #endif // UTILS_HPP
