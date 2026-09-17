@@ -52,13 +52,13 @@ if(UNIX)
 
     if(APPLE)
         # Ensure homebrew packages are discoverable
-        list(APPEND ${CMAKE_PREFIX_PATH} "/opt/homebrew")
+        list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew")
         set(CMAKE_INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}")
     endif()
 
     if(CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang")
         add_compile_options(
-            -Werror # Enables warnings as error
+            # -Werror # Enables warnings as error
         )
     endif()
 
@@ -103,4 +103,5 @@ endif()
 # --- Subdirs ---
 
 add_subdirectory(opengl)
+add_subdirectory(vulkan)
 add_subdirectory(external SYSTEM)

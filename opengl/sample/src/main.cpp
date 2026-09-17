@@ -313,7 +313,7 @@ int main()
     // Render loop
     while( !glfwWindowShouldClose( window ) )
     {
-        UTILS_SCOPED_TIMER( "Render Block" )
+        // UTILS_SCOPED_TIMER( "Render Block" )
         glfwPollEvents();
 
         float t   = static_cast<float>( glfwGetTime() );
@@ -342,9 +342,16 @@ int main()
 
         glDisable( GL_DEPTH_TEST );
 
+        glm::vec4 mouse = glm::vec4( mx, my, 0.0f, 0.0f );
+
+        if( glfwGetKey( window, GLFW_KEY_ENTER ) == GLFW_PRESS )
+        {
+            mouse.z = 1.0f;
+        }
+
         parallaxShader.use();
         parallaxShader.setUniform( "res", float( fbW ), float( fbH ), 1.0f );
-        parallaxShader.setUniform( "mouse", mx, my, 0.0f, 0.0f );
+        parallaxShader.setUniform( "mouse", mouse );
         parallaxShader.setUniform( "t", t );
 
         glBindVertexArray( fullscreenVAO );
@@ -352,7 +359,7 @@ int main()
 
         // Second draw: cubes over the background.
         glEnable( GL_DEPTH_TEST );
-        
+
         const float aspect = static_cast<float>( fbW ) / fbH;
         myShader.use();
         myShader.setUniform( "view", camera->getViewMatrix() );

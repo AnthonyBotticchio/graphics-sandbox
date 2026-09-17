@@ -1,0 +1,4 @@
+[submodule "external/engine"]
+	path = external/engine
+	url = git@github.com:ebajec/engine.git
+	branch = vulkan
