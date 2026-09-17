@@ -137,7 +137,11 @@ static void init_event( log_Event* ev, void* udata )
     {
         time_t t = time( NULL );
         ev->time = malloc( sizeof( struct tm ) );
+#ifdef _WIN32
         localtime_s( ev->time, &t );
+#elif __APPLE__
+        localtime_r( &t, ev->time );
+#endif
     }
 
     ev->udata = udata;

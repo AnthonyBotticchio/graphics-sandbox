@@ -10,7 +10,6 @@
 #include <GLFW/glfw3.h>
 #include <glm/ext.hpp>
 
-
 namespace
 {
     int HEIGHT      = 750;
@@ -178,6 +177,7 @@ int main()
     // --- Shaders ---
 
     Shader myShader( "vertex.vert", "fragment.frag" );
+    Shader parallaxShader("fullscreen.vert", "parallax.frag");
 
     // --- Setup ---
 
@@ -302,59 +302,69 @@ int main()
     myShader.setUniform( "texture1", 0 );
     myShader.setUniform( "texture2", 1 );
 
+    // Parallax
+    GLuint fullscreenVAO;
+    glGenVertexArrays(1, &fullscreenVAO);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    glfwSetCursorPosCallback(window, nullptr); // Disable camera movement
+
     glEnable( GL_DEPTH_TEST );
 
-    bool ok = true;
-    SPSCQueue<int, 4> q;
-    ok &= q.push( 10 );
-    ok &= q.push( 21 );
-    if( !ok )
-        log_fatal( "push operations failed" );
-
-    ok = true;
-    int res1, res2;
-    ok &= q.pop( res2 );
-    ok &= q.pop( res1 );
-    if( !ok )
-        log_fatal( "pop operations failed" );
-
-    log_info( "res1: %d, res2: %d", res1, res2 );
-
     // Render loop
-    while( !glfwWindowShouldClose( window ) )
+    while (!glfwWindowShouldClose(window))
     {
-        // UTILS_SCOPED_TIMER( "Render Block" )
-
-        // Deterministic calculations before
-        auto t    = static_cast<float>( glfwGetTime() );
-        auto dt   = t - lastFrame;
-        lastFrame = t;
-        glfwGetFramebufferSize( window, &WIDTH, &HEIGHT );
-        auto ASPECT                 = static_cast<float>( WIDTH ) / static_cast<float>( HEIGHT );
-        const glm::mat4& view       = camera->getViewMatrix();
-        const glm::mat4& projection = camera->getProjectionMatrix( ASPECT );
-
-        // Inputs: Check and call events and swap the buffers
-        glfwSwapBuffers( window );
         glfwPollEvents();
-        process_input( window, *camera, dt );
 
-        // Colors and Depth
-        glClearColor( 0.2f, 0.3f, 0.3f, 1.0f );
-        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+        float t = static_cast<float>(glfwGetTime());
+        float dt = t - lastFrame;
+        lastFrame = t;
 
-        // Bind multiple textures
-        glActiveTexture( GL_TEXTURE0 );
-        glBindTexture( GL_TEXTURE_2D, wall_tex );
-        glActiveTexture( GL_TEXTURE1 );
-        glBindTexture( GL_TEXTURE_2D, saul_tex );
+        process_input(window, *camera, dt);
 
-        // Set dynamically changing uniforms
-        myShader.setUniform( "theta", theta );
-        myShader.setUniform( "t", t );
-        myShader.setUniform( "mix_param", mix_param );
-        myShader.setUniform( "view", view );
-        myShader.setUniform( "proj", projection );
+        int fbW, fbH, windowW, windowH;
+        glfwGetFramebufferSize(window, &fbW, &fbH);
+        glfwGetWindowSize(window, &windowW, &windowH);
+
+        // Skip rendering when minimized or without a drawable area.
+        if (fbW <= 0 || fbH <= 0 || windowW <= 0 || windowH <= 0)
+            continue;
+
+        glViewport(0, 0, fbW, fbH);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // First draw: particle background.
+        double mouseX, mouseY;
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+
+        float mx = static_cast<float>(mouseX * fbW / windowW);
+        float my = static_cast<float>((windowH - mouseY) * fbH / windowH);
+
+        glDisable(GL_DEPTH_TEST);
+
+        parallaxShader.use();
+        parallaxShader.setUniform("res", float(fbW), float(fbH), 1.0f);
+        parallaxShader.setUniform("mouse", mx, my, 0.0f, 0.0f);
+        parallaxShader.setUniform("t", t);
+
+        glBindVertexArray(fullscreenVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        // Second draw: cubes over the background.
+        glEnable(GL_DEPTH_TEST);
+
+        myShader.use();
+
+        const float aspect = static_cast<float>(fbW) / fbH;
+        myShader.setUniform("view", camera->getViewMatrix());
+        myShader.setUniform("proj", camera->getProjectionMatrix(aspect));
+        myShader.setUniform("theta", theta);
+        myShader.setUniform("t", t);
+        myShader.setUniform("mix_param", mix_param);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, wall_tex);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, saul_tex);
 
         // Draw boxes
         glBindVertexArray( vao );
@@ -371,8 +381,7 @@ int main()
         glFinish(); // optional to synchronize draw calls. Reduces stuttering on OSX
 #endif
 
-        // Finish using our program. Only necessary if we are using multiple programs
-        // glUseProgram(0);
+        glfwSwapBuffers(window);
     }
 
     // de-allocate all resources once they've outlived their purpose

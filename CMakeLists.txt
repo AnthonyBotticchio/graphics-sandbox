@@ -55,6 +55,13 @@ if(UNIX)
         list(APPEND ${CMAKE_PREFIX_PATH} "/opt/homebrew")
         set(CMAKE_INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}")
     endif()
+
+    if(CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang")
+        add_compile_options(
+            -Werror # Enables warnings as error
+        )
+    endif()
+
 elseif(WIN32)
     set(BUILD_SHARED_LIBS OFF)
 

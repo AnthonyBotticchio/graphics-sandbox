@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -70,7 +71,9 @@ void Camera::processMouseMovement( float xOffset, float yOffset, bool constrainP
     m_pitch += yOffset * m_mouseSensitivity;
 
     if( constrainPitch )
+    {
         m_pitch = std::clamp( m_pitch, -89.0f, 89.0f );
+    }
 
     updateCameraVectors();
 }
