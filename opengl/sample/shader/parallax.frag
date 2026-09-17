@@ -6,7 +6,7 @@ uniform vec3 res;
 uniform vec4 mouse;
 uniform float t;
 
-#define PARTICLE_COUNT 250
+#define PARTICLE_COUNT 100
 
 float hash(float n)
 {
