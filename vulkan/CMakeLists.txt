@@ -15,6 +15,13 @@ elseif(WIN32)
     find_package(glfw3 CONFIG REQUIRED)
 endif()
 
+# --- Resources ---
+
+# For ebajec/engine
+add_compile_options(
+    -DRESOURCE_PATH=${CMAKE_CURRENT_SOURCE_DIR}/resource
+)
+
 # --- Subdirs ---
 
 add_subdirectory(particle)

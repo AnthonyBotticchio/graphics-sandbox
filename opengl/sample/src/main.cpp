@@ -343,11 +343,7 @@ int main()
         glDisable( GL_DEPTH_TEST );
 
         glm::vec4 mouse = glm::vec4( mx, my, 0.0f, 0.0f );
-
-        if( glfwGetKey( window, GLFW_KEY_ENTER ) == GLFW_PRESS )
-        {
-            mouse.z = 1.0f;
-        }
+        mouse.z = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT ) == GLFW_PRESS ? 1.0f : 0.0f;
 
         parallaxShader.use();
         parallaxShader.setUniform( "res", float( fbW ), float( fbH ), 1.0f );
