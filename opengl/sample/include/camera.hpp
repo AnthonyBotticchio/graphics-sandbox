@@ -28,6 +28,7 @@ class Camera
     [[nodiscard]] glm::mat4 getProjectionMatrix( float aspectRatio ) const;
 
     void processKeyboard( Movement direction, float deltaTime );
+    void rotate( float yawDegrees, float pitchDegrees, bool constrainPitch = true );
     void processMouseMovement( float xOffset, float yOffset, bool constrainPitch = true );
     void processMouseScroll( float yOffset );
 

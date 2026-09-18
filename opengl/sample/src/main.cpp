@@ -1,6 +1,7 @@
 #include "camera.hpp"
 #include "shader.hpp"
-#include "utils/spsc_queue.hpp"
+#include "terrain.hpp"
+#include "utils/render.hpp"
 #include "utils/timers.hpp"
 #include "utils/utils.hpp"
 
@@ -12,15 +13,14 @@
 
 namespace
 {
-    int HEIGHT      = 750;
-    int WIDTH       = 1000;
+    int HEIGHT      = 900;
+    int WIDTH       = 1600;
     double lastX    = static_cast<double>( WIDTH ) / 2.0;
     double lastY    = static_cast<double>( HEIGHT ) / 2.0;
     bool firstMouse = true;
     float dX        = 0.00f;
     float dY        = 0.00f;
     float dZ        = 0.00f;
-    float press_dur = 0.00f;
     float theta     = 0.00f;
     float mix_param = 0.00f;
     float lastFrame = 0.0f; // Time of last frame
@@ -55,17 +55,11 @@ namespace
 
     static inline void process_input( GLFWwindow* window, Camera& camera, float dt )
     {
-        float rotation_speed;
         float movement_dt = dt;
 
         if( glfwGetKey( window, GLFW_KEY_LEFT_SHIFT ) == GLFW_PRESS )
         {
             movement_dt *= 2.0f; // Twice as fast when pressing 'sprint'
-            rotation_speed = 50.0f * dt;
-        }
-        else if( glfwGetKey( window, GLFW_KEY_LEFT_SHIFT ) == GLFW_RELEASE )
-        {
-            rotation_speed = 25.0f * dt;
         }
 
         if( glfwGetKey( window, GLFW_KEY_ESCAPE ) == GLFW_PRESS )
@@ -100,30 +94,26 @@ namespace
             camera.processKeyboard( Camera::Movement::DOWN, movement_dt );
         }
 
+        // Pan (yaw) and tilt (pitch), in degrees per second.
+        const float turnStep = 60.0f * movement_dt;
+        float yaw            = 0.0f;
+        float pitch          = 0.0f;
+        if( glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_PRESS )
+            yaw -= turnStep;
         if( glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_PRESS )
-        {
-            theta -= rotation_speed * ( 0.05f + press_dur );
-            press_dur += 0.001f;
-        }
-        else if( glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_PRESS )
-        {
-            theta += rotation_speed * ( 0.05f + press_dur );
-            press_dur += 0.001f;
-        }
-        else if( glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_RELEASE )
-        {
-            press_dur = 0.0f;
-        }
-        else if( glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_RELEASE )
-        {
-            press_dur = 0.0f;
-        }
-
+            yaw += turnStep;
         if( glfwGetKey( window, GLFW_KEY_UP ) == GLFW_PRESS )
+            pitch += turnStep;
+        if( glfwGetKey( window, GLFW_KEY_DOWN ) == GLFW_PRESS )
+            pitch -= turnStep;
+        if( yaw != 0.0f || pitch != 0.0f )
+            camera.rotate( yaw, pitch );
+
+        if( glfwGetKey( window, GLFW_KEY_RIGHT_BRACKET ) == GLFW_PRESS )
         {
             mix_param += 0.01f;
         }
-        else if( glfwGetKey( window, GLFW_KEY_DOWN ) == GLFW_PRESS )
+        else if( glfwGetKey( window, GLFW_KEY_LEFT_BRACKET ) == GLFW_PRESS )
         {
             mix_param -= 0.01f;
         }
@@ -158,7 +148,8 @@ int main()
     glfwMakeContextCurrent( window );
     glfwSetFramebufferSizeCallback( window, utils::framebuffer_size_callback );
 
-    std::unique_ptr<Camera> camera = std::make_unique<Camera>( glm::vec3( 0.0f, 0.0f, 3.0f ) );
+    std::unique_ptr<Camera> camera =
+        std::make_unique<Camera>( glm::vec3( 0.0f, 0.0f, 3.0f ), glm::vec3( 0.0f, 2.0f, 0.0f ), -90.0f, 0.0f, 0.1f, 500.0f );
     glfwSetWindowUserPointer( window, camera.get() );
     glfwSetInputMode( window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
     glfwSetCursorPosCallback( window, mouse_callback );
@@ -176,28 +167,18 @@ int main()
 
     // --- Shaders ---
 
-    Shader myShader( "vertex.vert", "fragment.frag" );
-    Shader parallaxShader( "fullscreen.vert", "parallax.frag" );
+    Shader cubeShader( "vertex.vert", "fragment.frag" );
+    Shader particleShader( "particleInstance.vert", "particle.frag" );
+    Shader groundShader( "ground.vert", "ground.frag" );
+
+    // --- Terrain ---
+
+    constexpr unsigned int terrainCells = 500;
+    std::unique_ptr<Terrain> terrain    = std::make_unique<Terrain>( terrainCells, 250.0f );
 
     // --- Setup ---
 
     // clang-format off
-    // constexpr GLfloat vertices[] = { 
-    //     // positions         // colors           // texture
-    //     0.5f, -0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 0.0f,   // bottom right
-    //     -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   0.0f, 0.0f,   // bottom left
-    //     0.0f,  0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.5f, 1.0f,   // top middle
-    //     -0.5f,  0.5f, 0.0f,  0.0f, 1.0f, 1.0f,   0.0f, 1.0f,   // top left
-    //     0.5f,  0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   1.0f, 1.0f,   // top right
-
-    //     -0.5f,  0.5f, 0.0f,     // top left 
-    //     0.0f,  0.5f, 0.0f,      // top middle
-    //     0.0f, -0.5f, 0.0f,      // bottom middle
-
-    //     0.0f, 1.0f, 0.0f,
-    //     0.0f, -1.0f, 0.0f
-    // };
-
     // 6 faces of a cube
     constexpr GLfloat vertices[] = {
         // Positions         // Texture
@@ -265,7 +246,20 @@ int main()
         glm::vec3( 1.5f,  0.2f, -1.5f), 
         glm::vec3(-1.3f,  1.0f, -1.5f)  
     };
+
+    constexpr std::array<float, 30> groundVertices = {
+         // Position          // UV
+        -1000, -1, -1000,        0, 0,
+        -1000, -1,  1000,        0, 1,
+        1000, -1,  1000,        1, 1,
+
+        -1000, -1, -1000,        0, 0,
+        1000, -1,  1000,        1, 1,
+        1000, -1, -1000,        1, 0
+    };
     // clang-format on
+
+    // --- Cube Pre-Pass ---
 
     GLuint vao, vbo, ebo;
     glGenVertexArrays( 1, &vao );
@@ -278,11 +272,11 @@ int main()
 
     // VAO - must be set after VBO to be bound to it
     glBindVertexArray( vao );
-    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof( float ), (void*)0 ); // position attribute
+    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof( float ), nullptr ); // position attribute
     glEnableVertexAttribArray( 0 );
     // glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)( 3 * sizeof( float ) ) ); // color attribute
     // glEnableVertexAttribArray( 1 );
-    glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof( float ), (void*)( 3 * sizeof( float ) ) ); // texture attribute
+    glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof( float ), reinterpret_cast<void*>( 3 * sizeof( float ) ) );
     glEnableVertexAttribArray( 1 );
 
     // EBO - must be set after VAO to be bound to it
@@ -298,17 +292,39 @@ int main()
     utils::gen_texture( saul_tex, "saul.jpg" );
 
     // Constant Uniforms
-    myShader.use();
-    myShader.setUniform( "texture1", 0 );
-    myShader.setUniform( "texture2", 1 );
+    cubeShader.use();
+    cubeShader.setUniform( "texture1", 0 );
+    cubeShader.setUniform( "texture2", 1 );
 
-    // Parallax
-    GLuint fullscreenVAO;
-    glGenVertexArrays( 1, &fullscreenVAO );
+    // --- Particle Pre-Pase ---
+
+    GLuint particleInstanceVAO;
+    glGenVertexArrays( 1, &particleInstanceVAO );
     glfwSetInputMode( window, GLFW_CURSOR, GLFW_CURSOR_NORMAL );
     glfwSetCursorPosCallback( window, nullptr ); // Disable camera movement
 
-    glEnable( GL_DEPTH_TEST );
+    // --- Ground Pre-Pass ---
+
+    GLuint terrainVAO, terrainVBO, terrainEBO;
+    glGenVertexArrays( 1, &terrainVAO );
+    glGenBuffers( 1, &terrainVBO );
+    glGenBuffers( 1, &terrainEBO );
+
+    glBindVertexArray( terrainVAO );
+
+    glBindBuffer( GL_ARRAY_BUFFER, terrainVBO );
+    glBufferData( GL_ARRAY_BUFFER, terrain->getArrayBufferWidth(), terrain->getVertices().data(), GL_STATIC_DRAW );
+
+    glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, terrainEBO );
+    glBufferData( GL_ELEMENT_ARRAY_BUFFER, terrain->getElementBufferWidth(), terrain->getIndices().data(), GL_STATIC_DRAW );
+
+    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, terrain->getSizeOfVertexType(), terrain->getOffsetOfVertexPosition() );
+    glEnableVertexAttribArray( 0 );
+    glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, terrain->getSizeOfVertexType(), terrain->getOffsetOfVertexTexture() );
+    glEnableVertexAttribArray( 1 );
+
+    GLuint grass_tex;
+    utils::gen_texture( grass_tex, "saul.jpg" );
 
     // Render loop
     while( !glfwWindowShouldClose( window ) )
@@ -330,72 +346,96 @@ int main()
         if( fbW <= 0 || fbH <= 0 || windowW <= 0 || windowH <= 0 )
             continue;
 
-        glViewport( 0, 0, fbW, fbH );
-        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+        utils::beginFrame( fbW, fbH );
 
-        // First draw: particle background.
+        // Generic constants
         double mouseX, mouseY;
         glfwGetCursorPos( window, &mouseX, &mouseY );
-
-        float mx = static_cast<float>( mouseX * fbW / windowW );
-        float my = static_cast<float>( ( windowH - mouseY ) * fbH / windowH );
-
-        glDisable( GL_DEPTH_TEST );
-
-        glm::vec4 mouse = glm::vec4( mx, my, 0.0f, 0.0f );
-        mouse.z = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT ) == GLFW_PRESS ? 1.0f : 0.0f;
-
-        parallaxShader.use();
-        parallaxShader.setUniform( "res", float( fbW ), float( fbH ), 1.0f );
-        parallaxShader.setUniform( "mouse", mouse );
-        parallaxShader.setUniform( "t", t );
-
-        glBindVertexArray( fullscreenVAO );
-        glDrawArrays( GL_TRIANGLES, 0, 3 );
-
-        // Second draw: cubes over the background.
-        glEnable( GL_DEPTH_TEST );
-
+        const float mx     = static_cast<float>( mouseX * fbW / windowW );
+        const float my     = static_cast<float>( ( windowH - mouseY ) * fbH / windowH );
         const float aspect = static_cast<float>( fbW ) / fbH;
-        myShader.use();
-        myShader.setUniform( "view", camera->getViewMatrix() );
-        myShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
-        myShader.setUniform( "theta", theta );
-        myShader.setUniform( "t", t );
-        myShader.setUniform( "mix_param", mix_param );
+
+        // --- Ground ---
+
+        utils::beginOpaquePass();
+
+        groundShader.use();
+        groundShader.setUniform( "groundTexture", 0 ); // Texture unit 0
+        groundShader.setUniform( "cells", static_cast<float>( terrainCells ) );
+        groundShader.setUniform( "model", glm::mat4( 1.0f ) );
+        groundShader.setUniform( "view", camera->getViewMatrix() );
+        groundShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
+        groundShader.setUniform( "t", t );
 
         glActiveTexture( GL_TEXTURE0 );
-        glBindTexture( GL_TEXTURE_2D, wall_tex );
-        glActiveTexture( GL_TEXTURE1 );
-        glBindTexture( GL_TEXTURE_2D, saul_tex );
+        glBindTexture( GL_TEXTURE_2D, grass_tex );
 
-        // Draw boxes
-        glBindVertexArray( vao );
-        for( size_t i{ cubePositions.size() }; i-- > 0; )
-        {
-            glm::mat4 model = glm::translate( I4, cubePositions[i] );
-            float angle     = 20.0f * i; // Provide a random angle
-            model           = glm::rotate( model, glm::radians( angle ), glm::vec3( 1.0f, 0.3f, 0.5f ) );
-            myShader.setUniform( "model", model );
-            glDrawArrays( GL_TRIANGLES, 0, 36 );
-        }
+        glBindVertexArray( terrainVAO );
+        glDrawElements( GL_TRIANGLES, terrain->getIndicesSize(), GL_UNSIGNED_INT, nullptr );
+
+        // --- Cubes ---
+
+        // utils::beginOpaquePass();
+
+        // cubeShader.use();
+        // cubeShader.setUniform( "view", camera->getViewMatrix() );
+        // cubeShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
+        // cubeShader.setUniform( "theta", theta );
+        // cubeShader.setUniform( "t", t );
+        // cubeShader.setUniform( "mix_param", mix_param );
+
+        // glActiveTexture( GL_TEXTURE0 );
+        // glBindTexture( GL_TEXTURE_2D, wall_tex );
+        // glActiveTexture( GL_TEXTURE1 );
+        // glBindTexture( GL_TEXTURE_2D, saul_tex );
+
+        // // Draw boxes
+        // glBindVertexArray( vao );
+        // for( size_t i{ cubePositions.size() }; i-- > 0; )
+        // {
+        //     glm::mat4 model = glm::translate( I4, cubePositions[i] );
+        //     float angle     = 20.0f * i; // Provide a random angle
+        //     model           = glm::rotate( model, glm::radians( angle ), glm::vec3( 1.0f, 0.3f, 0.5f ) );
+        //     cubeShader.setUniform( "model", model );
+        //     glDrawArrays( GL_TRIANGLES, 0, 36 );
+        // }
+
+        // --- Particles ---
+
+        utils::beginParticlePass();
+
+        glm::vec4 mouse = glm::vec4( mx, my, 0.0f, 0.0f );
+        mouse.z         = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT ) == GLFW_PRESS ? 1.0f : 0.0f;
+
+        particleShader.use();
+        particleShader.setUniform( "view", camera->getViewMatrix() );
+        particleShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
+        particleShader.setUniform( "res", float( fbW ), float( fbH ), 1.0f );
+        particleShader.setUniform( "mouse", mouse );
+        particleShader.setUniform( "t", t );
+
+        glBindVertexArray( particleInstanceVAO );
+        glDrawArraysInstanced( GL_TRIANGLE_STRIP, 0, 4, 150000 );
 
 #ifdef __APPLE__
-        // glFinish(); // optional to synchronize draw calls. Reduces stuttering on OSX
+        glFinish(); // optional to synchronize draw calls. Reduces stuttering on OSX
 #endif
-
         glfwSwapBuffers( window );
     }
 
     // de-allocate all resources once they've outlived their purpose
-    const GLuint textures[] = { wall_tex, saul_tex };
-    glDeleteTextures( 2, textures );
+    const GLuint textures[] = { wall_tex, saul_tex, grass_tex };
+    glDeleteTextures( static_cast<GLuint>( sizeof( textures ) / sizeof( GLuint ) ), textures );
     glDeleteVertexArrays( 1, &vao );
-    glDeleteVertexArrays( 1, &fullscreenVAO );
+    glDeleteVertexArrays( 1, &particleInstanceVAO );
+    glDeleteVertexArrays( 1, &terrainVAO );
     glDeleteBuffers( 1, &vbo );
     glDeleteBuffers( 1, &ebo );
-    glDeleteProgram( myShader.getProgram() );
-    glDeleteProgram( parallaxShader.getProgram() );
+    glDeleteBuffers( 1, &terrainVBO );
+    glDeleteBuffers( 1, &terrainEBO );
+    glDeleteProgram( cubeShader.getProgram() );
+    glDeleteProgram( particleShader.getProgram() );
+    glDeleteProgram( groundShader.getProgram() );
     glfwDestroyWindow( window );
 
     glfwTerminate();

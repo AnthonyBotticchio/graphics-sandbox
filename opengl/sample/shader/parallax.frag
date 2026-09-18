@@ -25,6 +25,9 @@ bool mouseHeld()
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
+    const float maxSpeed = 0.50;
+    const float minSpeed = 0.10;
+
     float s_t    = sin( t );
     float c_t    = cos( t );
     float aspect = res.x / res.y;
@@ -42,43 +45,29 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         // Give every particle deterministic pseudo-random properties.
         float phase = hash( id * 17.3 ) * 6.235;
         vec2 pos    = vec2( ( hash( id * 13.7 ) - 0.5 ) * aspect, hash( id * 27.3 ) - 0.5 );
-        float speed = mix( 0.10, 0.50, hash( id * 41.9 ) );
+        float speed = mix( minSpeed, maxSpeed, hash( id * 41.9 ) );
 
-        pos += vec2( sin( t * phase ), -cos( t * phase ) ) * speed;
-
-        // y += mouse.y * speed;
-        // x += mouse.x * speed;
+        float angle = phase + t;
+        pos += vec2( sin( angle ), -cos( angle ) ) * speed * 0.5;
 
         if( mouseHeld() )
         {
-            vec2 dir   = mouse - pos;
-            float dist = length( dir );
+            vec2 dir             = mouse - pos;
+            float dist           = length( dir );
+            const float strength = 0.5;
 
             if( dist > 0.001 )
-            {
-                vec2 d_hat           = normalize( dir );
-                const float strength = 0.5;
-                pos += d_hat * strength;
-            }
+                pos += ( dir / dist ) * strength;
         }
-
-        // y = fract(y);
-
-
-        // y = clamp(y, -0.5, 0.5);
-        // x = clamp(x, -aspect/2.0, aspect/2.0);
 
         // Distance from this pixel to the particle.
         float d = length( uv - pos );
 
         // Particle radius.
-        float radius = 0.008;
-
-        // if(i % 2 == 0)
-        //    radius *= sin(iTime);
+        float radius = mix(0.002, 0.015, speed / maxSpeed);
 
         // Hard-ish circular core.
-        float particle = 1.0 - smoothstep( radius, radius + 0.003, d );
+        float particle = 1.0 - smoothstep( radius, radius + 0.005, d );
 
         color += vec3( particle );
     }

@@ -67,8 +67,13 @@ void Camera::processKeyboard( Movement direction, float deltaTime )
 
 void Camera::processMouseMovement( float xOffset, float yOffset, bool constrainPitch )
 {
-    m_yaw += xOffset * m_mouseSensitivity;
-    m_pitch += yOffset * m_mouseSensitivity;
+    rotate( xOffset * m_mouseSensitivity, yOffset * m_mouseSensitivity, constrainPitch );
+}
+
+void Camera::rotate( float yawDegrees, float pitchDegrees, bool constrainPitch )
+{
+    m_yaw += yawDegrees;
+    m_pitch += pitchDegrees;
 
     if( constrainPitch )
     {
