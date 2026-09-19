@@ -5,15 +5,22 @@
 
 #include <fstream>
 
-Shader::Shader( const char* vertexPath, const char* fragmentPath )
+Shader::Shader( const char* vertexPath, const char* fragmentPath, const std::vector<const char*>& feedbackOutputs )
 {
-    const std::string vertex_source_str   = loadShaderSource( vertexPath );
-    const std::string fragment_source_str = loadShaderSource( fragmentPath );
-    const char* vertex_source             = vertex_source_str.c_str();
-    const char* fragment_source           = fragment_source_str.c_str();
-    const GLuint vertex_shader            = createShader( GL_VERTEX_SHADER, 1, &vertex_source );
-    const GLuint fragment_shader          = createShader( GL_FRAGMENT_SHADER, 1, &fragment_source );
-    m_program                             = createShaderProgram( { vertex_shader, fragment_shader } ); // Must be in order
+    const std::string vertexSource = loadShaderSource( vertexPath );
+    const char* vertexText         = vertexSource.c_str();
+
+    std::vector<GLuint> shaders{ createShader( GL_VERTEX_SHADER, 1, &vertexText ) };
+
+    if( fragmentPath != nullptr )
+    {
+        const std::string fragmentSource = loadShaderSource( fragmentPath );
+        const char* fragmentText         = fragmentSource.c_str();
+
+        shaders.push_back( createShader( GL_FRAGMENT_SHADER, 1, &fragmentText ) );
+    }
+
+    m_program = createShaderProgram( shaders, feedbackOutputs );
 }
 
 GLuint Shader::getProgram() const
@@ -141,9 +148,15 @@ bool Shader::shaderLinkCheck( const GLuint program )
     return success;
 }
 
-GLuint Shader::createShaderProgram( const std::vector<GLuint>& shaders )
+GLuint Shader::createShaderProgram( const std::vector<GLuint>& shaders, const std::vector<const char*>& feedbackOutputs )
 {
     GLuint program = glCreateProgram();
+
+    if( !feedbackOutputs.empty() )
+    {
+        glTransformFeedbackVaryings( program, static_cast<GLsizei>( feedbackOutputs.size() ), feedbackOutputs.data(),
+                                     GL_INTERLEAVED_ATTRIBS );
+    }
 
     for( const GLuint& shader : shaders )
         glAttachShader( program, shader ); // Delete shader objects after linking

@@ -6,6 +6,8 @@
 #include "utils/utils.hpp"
 
 #include <memory>
+#include <cmath>
+#include <random>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -168,7 +170,8 @@ int main()
     // --- Shaders ---
 
     Shader cubeShader( "vertex.vert", "fragment.frag" );
-    Shader particleShader( "particleInstance.vert", "particle.frag" );
+    Shader particleRenderShader( "particleRender.vert", "particle.frag" );
+    Shader particleUpdateShader( "particleUpdate.vert", nullptr, { "oPosition", "oVelocity" } );
     Shader groundShader( "ground.vert", "ground.frag" );
 
     // --- Terrain ---
@@ -259,7 +262,7 @@ int main()
     };
     // clang-format on
 
-    // --- Cube Pre-Pass ---
+    // --- Cube Bindings ---
 
     GLuint vao, vbo, ebo;
     glGenVertexArrays( 1, &vao );
@@ -296,14 +299,79 @@ int main()
     cubeShader.setUniform( "texture1", 0 );
     cubeShader.setUniform( "texture2", 1 );
 
-    // --- Particle Pre-Pase ---
+    // --- Particle Bindings ---
 
-    GLuint particleInstanceVAO;
-    glGenVertexArrays( 1, &particleInstanceVAO );
+    struct ParticleState
+    {
+        float position[3];
+        float velocity[3];
+    };
+
+    constexpr GLsizei particleCount = 100000;
+    std::vector<ParticleState> initialParticles( particleCount );
+
+    std::mt19937 rng( 42 );
+    std::uniform_real_distribution<float> positionDistribution( -1.0f, 1.0f );
+
+    for( auto& particle : initialParticles )
+    {
+        for( int axis = 0; axis < 3; ++axis )
+        {
+            particle.position[axis] = positionDistribution( rng );
+        }
+
+        // Constant sideways drift makes the first test easy to recognize.
+        particle.velocity[0] = 0.1f;
+        particle.velocity[1] = 0.1f;
+        particle.velocity[2] = 0.1f;
+    }
+
+    GLuint particleBuffers[2];
+    GLuint updateVAOs[2];
+    GLuint renderVAOs[2];
+
+    glGenBuffers( 2, particleBuffers );
+    glGenVertexArrays( 2, updateVAOs );
+    glGenVertexArrays( 2, renderVAOs );
+
+    int readIndex  = 0;
+    int writeIndex = 1;
+
+    for( int i = 0; i < 2; ++i )
+    {
+        glBindBuffer( GL_ARRAY_BUFFER, particleBuffers[i] );
+        glBufferData( GL_ARRAY_BUFFER, static_cast<GLsizeiptr>( initialParticles.size() * sizeof( ParticleState ) ),
+                      initialParticles.data(), GL_DYNAMIC_COPY );
+
+        // Update pass: one vertex = one particle.
+        glBindVertexArray( updateVAOs[i] );
+
+        glEnableVertexAttribArray( 0 );
+        glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, sizeof( ParticleState ),
+                               reinterpret_cast<void*>( offsetof( ParticleState, position ) ) );
+        glVertexAttribDivisor( 0, 0 );
+
+        glEnableVertexAttribArray( 1 );
+        glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, sizeof( ParticleState ),
+                               reinterpret_cast<void*>( offsetof( ParticleState, velocity ) ) );
+        glVertexAttribDivisor( 1, 0 );
+
+        // Render pass: one instance = one particle.
+        glBindVertexArray( renderVAOs[i] );
+
+        glEnableVertexAttribArray( 0 );
+        glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, sizeof( ParticleState ),
+                               reinterpret_cast<void*>( offsetof( ParticleState, position ) ) );
+        glVertexAttribDivisor( 0, 1 );
+    }
+
+    glBindVertexArray( 0 );
+    glBindBuffer( GL_ARRAY_BUFFER, 0 );
+
     glfwSetInputMode( window, GLFW_CURSOR, GLFW_CURSOR_NORMAL );
     glfwSetCursorPosCallback( window, nullptr ); // Disable camera movement
 
-    // --- Ground Pre-Pass ---
+    // --- Ground Bindings ---
 
     GLuint terrainVAO, terrainVBO, terrainEBO;
     glGenVertexArrays( 1, &terrainVAO );
@@ -337,6 +405,13 @@ int main()
         lastFrame = t;
 
         process_input( window, *camera, dt );
+
+        // Correct camera position
+        glm::vec3 cameraPosition  = camera->getPosition();
+        constexpr float eyeHeight = 1.3f;
+        float minimumY            = terrain->getElevationAt( cameraPosition.x, cameraPosition.z ) + eyeHeight;
+        cameraPosition.y          = std::max( minimumY, cameraPosition.y );
+        camera->setPosition( cameraPosition );
 
         int fbW, fbH, windowW, windowH;
         glfwGetFramebufferSize( window, &fbW, &fbH );
@@ -400,22 +475,65 @@ int main()
         //     glDrawArrays( GL_TRIANGLES, 0, 36 );
         // }
 
-        // --- Particles ---
+        // --- Update Particle Pass ---
+
+        // Unproject the cursor into a world-space ray, then intersect Z = 0.
+        // A screen position alone has no depth, so this plane defines the target.
+        const glm::mat4& view = camera->getViewMatrix();
+        const glm::mat4& projection = camera->getProjectionMatrix( aspect );
+        const glm::vec4 viewport( 0.0f, 0.0f, float( fbW ), float( fbH ) );
+        const glm::vec3 rayStart = glm::unProject( glm::vec3( mx, my, 0.0f ), view, projection, viewport );
+        const glm::vec3 rayEnd = glm::unProject( glm::vec3( mx, my, 1.0f ), view, projection, viewport );
+        const glm::vec3 rayDirection = glm::normalize( rayEnd - rayStart );
+
+        glm::vec3 mouseTarget( 0.0f );
+        bool mouseActive = false;
+        const bool cursorInside = mouseX >= 0.0 && mouseX < windowW && mouseY >= 0.0 && mouseY < windowH;
+        if( cursorInside && glfwGetWindowAttrib( window, GLFW_FOCUSED ) &&
+            glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT ) == GLFW_PRESS && std::abs( rayDirection.z ) > 0.001f )
+        {
+            const float distance = -rayStart.z / rayDirection.z;
+            // Ignore intersections behind the camera or beyond the visible ray.
+            if( distance >= 0.0f && distance <= glm::length( rayEnd - rayStart ) )
+            {
+                mouseTarget = rayStart + distance * rayDirection;
+                mouseActive = true;
+            }
+        }
+
+        particleUpdateShader.use();
+        particleUpdateShader.setUniform( "dt", std::min( dt, 0.033f ) );
+        particleUpdateShader.setUniform( "acceleration", glm::vec3( 0.0f ) );
+        particleUpdateShader.setUniform( "mouseTarget", mouseTarget );
+        particleUpdateShader.setUniform( "mouseActive", mouseActive ? 1 : 0 );
+        particleUpdateShader.setUniform( "attractionStrength", 2.0f );
+
+        glBindVertexArray( updateVAOs[readIndex] );
+
+        glBindBufferBase( GL_TRANSFORM_FEEDBACK_BUFFER, 0, particleBuffers[writeIndex] );
+        glEnable( GL_RASTERIZER_DISCARD );
+
+        glBeginTransformFeedback( GL_POINTS );
+        glDrawArrays( GL_POINTS, 0, particleCount );
+        glEndTransformFeedback();
+
+        glDisable( GL_RASTERIZER_DISCARD );
+        glBindBufferBase( GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0 );
+
+        // --- Render Paritcle Pass ---
 
         utils::beginParticlePass();
 
-        glm::vec4 mouse = glm::vec4( mx, my, 0.0f, 0.0f );
-        mouse.z         = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT ) == GLFW_PRESS ? 1.0f : 0.0f;
+        particleRenderShader.use();
+        particleRenderShader.setUniform( "view", view );
+        particleRenderShader.setUniform( "proj", projection );
 
-        particleShader.use();
-        particleShader.setUniform( "view", camera->getViewMatrix() );
-        particleShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
-        particleShader.setUniform( "res", float( fbW ), float( fbH ), 1.0f );
-        particleShader.setUniform( "mouse", mouse );
-        particleShader.setUniform( "t", t );
+        glBindVertexArray( renderVAOs[writeIndex] );
+        glDrawArraysInstanced( GL_TRIANGLE_STRIP, 0, 4, particleCount );
 
-        glBindVertexArray( particleInstanceVAO );
-        glDrawArraysInstanced( GL_TRIANGLE_STRIP, 0, 4, 150000 );
+        // --- End Particle Pass ---
+
+        std::swap( readIndex, writeIndex );
 
 #ifdef __APPLE__
         glFinish(); // optional to synchronize draw calls. Reduces stuttering on OSX
@@ -427,14 +545,17 @@ int main()
     const GLuint textures[] = { wall_tex, saul_tex, grass_tex };
     glDeleteTextures( static_cast<GLuint>( sizeof( textures ) / sizeof( GLuint ) ), textures );
     glDeleteVertexArrays( 1, &vao );
-    glDeleteVertexArrays( 1, &particleInstanceVAO );
+    glDeleteVertexArrays( 2, updateVAOs );
+    glDeleteVertexArrays( 2, renderVAOs );
     glDeleteVertexArrays( 1, &terrainVAO );
     glDeleteBuffers( 1, &vbo );
     glDeleteBuffers( 1, &ebo );
+    glDeleteBuffers( 2, particleBuffers );
     glDeleteBuffers( 1, &terrainVBO );
     glDeleteBuffers( 1, &terrainEBO );
     glDeleteProgram( cubeShader.getProgram() );
-    glDeleteProgram( particleShader.getProgram() );
+    glDeleteProgram( particleRenderShader.getProgram() );
+    glDeleteProgram( particleUpdateShader.getProgram() );
     glDeleteProgram( groundShader.getProgram() );
     glfwDestroyWindow( window );
 

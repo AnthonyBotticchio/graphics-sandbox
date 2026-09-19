@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -28,6 +27,11 @@ Camera::Camera( glm::vec3 position, glm::vec3 up, float yaw, float pitch, float 
     updateCameraVectors();
 }
 
+glm::vec3 Camera::getPosition() const
+{
+    return m_position;
+}
+
 glm::mat4 Camera::getViewMatrix() const
 {
     return glm::lookAt( m_position, m_position + m_front, m_up );
@@ -38,17 +42,24 @@ glm::mat4 Camera::getProjectionMatrix( float aspectRatio ) const
     return glm::perspective( glm::radians( m_zoom ), aspectRatio, m_nearPlane, m_farPlane );
 }
 
+void Camera::setPosition( const glm::vec3& pos )
+{
+    m_position = pos;
+}
+
 void Camera::processKeyboard( Movement direction, float deltaTime )
 {
-    const float velocity = m_movementSpeed * deltaTime;
+    // Create forward vector that only tracks movement along xz-plane
+    const glm::vec3 forward = glm::normalize( glm::vec3( m_front.x, 0.0f, m_front.z ) );
+    const float velocity    = m_movementSpeed * deltaTime;
 
     switch( direction )
     {
         case Movement::FORWARD:
-            m_position += m_front * velocity;
+            m_position += forward * velocity;
             break;
         case Movement::BACKWARD:
-            m_position -= m_front * velocity;
+            m_position -= forward * velocity;
             break;
         case Movement::LEFT:
             m_position -= m_right * velocity;

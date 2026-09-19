@@ -6,7 +6,7 @@
 class Shader
 {
   public:
-    Shader( const char* vertexPath, const char* fragmentPath );
+    Shader( const char* vertexPath, const char* fragmentPath = nullptr, const std::vector<const char*>& feedbackOutputs = {} );
     virtual ~Shader() = default;
 
     GLuint getProgram() const;
@@ -54,7 +54,7 @@ class Shader
     GLuint createShader( const GLenum type, const GLsizei count, const char* const* shaderSource );
     bool shaderCompileCheck( const GLuint shader );
     bool shaderLinkCheck( const GLuint program );
-    GLuint createShaderProgram( const std::vector<GLuint>& shaders );
+    GLuint createShaderProgram( const std::vector<GLuint>& shaders, const std::vector<const char*>& feedbackOutputs );
 
     mutable std::unordered_map<std::string, GLint> m_uniformCache;
     GLuint m_program;

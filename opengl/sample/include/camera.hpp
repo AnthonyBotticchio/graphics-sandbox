@@ -24,8 +24,11 @@ class Camera
                      float farPlane     = 100.0f );
     ~Camera() = default;
 
+    [[nodiscard]] glm::vec3 getPosition() const;
     [[nodiscard]] glm::mat4 getViewMatrix() const;
     [[nodiscard]] glm::mat4 getProjectionMatrix( float aspectRatio ) const;
+
+    void setPosition(const glm::vec3& pos);
 
     void processKeyboard( Movement direction, float deltaTime );
     void rotate( float yawDegrees, float pitchDegrees, bool constrainPitch = true );
