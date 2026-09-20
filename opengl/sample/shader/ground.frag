@@ -1,13 +1,11 @@
 #version 410 core
 
 layout( location = 0 ) in vec3 aFragPos;
-
 layout( location = 1 ) in vec2 TexCoord;
 
 out vec4 FragColor;
 
 uniform sampler2D groundTexture;
-uniform float cells;
 uniform float t;
 
 void main()

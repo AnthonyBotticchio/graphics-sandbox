@@ -5,8 +5,8 @@
 #include "utils/timers.hpp"
 #include "utils/utils.hpp"
 
-#include <memory>
 #include <cmath>
+#include <memory>
 #include <random>
 
 #include <GL/glew.h>
@@ -148,6 +148,7 @@ int main()
         return EXIT_FAILURE;
     }
     glfwMakeContextCurrent( window );
+    glfwSwapInterval(1);
     glfwSetFramebufferSizeCallback( window, utils::framebuffer_size_callback );
 
     std::unique_ptr<Camera> camera =
@@ -311,7 +312,7 @@ int main()
     std::vector<ParticleState> initialParticles( particleCount );
 
     std::mt19937 rng( 42 );
-    std::uniform_real_distribution<float> positionDistribution( -1.0f, 1.0f );
+    std::normal_distribution<float> positionDistribution( 0.0f, 1.0f );
 
     for( auto& particle : initialParticles )
     {
@@ -322,8 +323,8 @@ int main()
 
         // Constant sideways drift makes the first test easy to recognize.
         particle.velocity[0] = 0.1f;
-        particle.velocity[1] = 0.1f;
-        particle.velocity[2] = 0.1f;
+        particle.velocity[1] = 0.0f;
+        particle.velocity[2] = 0.0f;
     }
 
     GLuint particleBuffers[2];
@@ -397,7 +398,7 @@ int main()
     // Render loop
     while( !glfwWindowShouldClose( window ) )
     {
-        // UTILS_SCOPED_TIMER( "Render Block" )
+        UTILS_SCOPED_TIMER( "Render Block" )
         glfwPollEvents();
 
         float t   = static_cast<float>( glfwGetTime() );
@@ -436,7 +437,6 @@ int main()
 
         groundShader.use();
         groundShader.setUniform( "groundTexture", 0 ); // Texture unit 0
-        groundShader.setUniform( "cells", static_cast<float>( terrainCells ) );
         groundShader.setUniform( "model", glm::mat4( 1.0f ) );
         groundShader.setUniform( "view", camera->getViewMatrix() );
         groundShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
@@ -479,15 +479,16 @@ int main()
 
         // Unproject the cursor into a world-space ray, then intersect Z = 0.
         // A screen position alone has no depth, so this plane defines the target.
-        const glm::mat4& view = camera->getViewMatrix();
+        
+        const glm::mat4& view       = camera->getViewMatrix();
         const glm::mat4& projection = camera->getProjectionMatrix( aspect );
         const glm::vec4 viewport( 0.0f, 0.0f, float( fbW ), float( fbH ) );
-        const glm::vec3 rayStart = glm::unProject( glm::vec3( mx, my, 0.0f ), view, projection, viewport );
-        const glm::vec3 rayEnd = glm::unProject( glm::vec3( mx, my, 1.0f ), view, projection, viewport );
+        const glm::vec3 rayStart     = glm::unProject( glm::vec3( mx, my, 0.0f ), view, projection, viewport );
+        const glm::vec3 rayEnd       = glm::unProject( glm::vec3( mx, my, 1.0f ), view, projection, viewport );
         const glm::vec3 rayDirection = glm::normalize( rayEnd - rayStart );
 
         glm::vec3 mouseTarget( 0.0f );
-        bool mouseActive = false;
+        bool mouseActive        = false;
         const bool cursorInside = mouseX >= 0.0 && mouseX < windowW && mouseY >= 0.0 && mouseY < windowH;
         if( cursorInside && glfwGetWindowAttrib( window, GLFW_FOCUSED ) &&
             glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT ) == GLFW_PRESS && std::abs( rayDirection.z ) > 0.001f )
@@ -536,7 +537,7 @@ int main()
         std::swap( readIndex, writeIndex );
 
 #ifdef __APPLE__
-        glFinish(); // optional to synchronize draw calls. Reduces stuttering on OSX
+        // glFinish(); // optional to synchronize draw calls. Reduces stuttering on OSX
 #endif
         glfwSwapBuffers( window );
     }
