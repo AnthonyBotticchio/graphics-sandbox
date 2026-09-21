@@ -2,7 +2,6 @@
 
 ---
 BasedOnStyle: LLVM
-Language: Cpp
 AccessModifierOffset: -2
 AlignConsecutiveAssignments: true
 AlignEscapedNewlinesLeft: false

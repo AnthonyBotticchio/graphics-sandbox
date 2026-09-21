@@ -1,6 +1,7 @@
 #include "camera.hpp"
 #include "shader.hpp"
 #include "terrain.hpp"
+#include "utils/frame_pacer.hpp"
 #include "utils/render.hpp"
 #include "utils/timers.hpp"
 #include "utils/utils.hpp"
@@ -148,7 +149,6 @@ int main()
         return EXIT_FAILURE;
     }
     glfwMakeContextCurrent( window );
-    glfwSwapInterval(1);
     glfwSetFramebufferSizeCallback( window, utils::framebuffer_size_callback );
 
     std::unique_ptr<Camera> camera =
@@ -239,27 +239,16 @@ int main()
 
     // Random cube positions in world coordinates
     constexpr std::array<glm::vec3, 10> cubePositions = {
-        glm::vec3( 0.0f,  0.0f,  0.0f), 
-        glm::vec3( 2.0f,  5.0f, -15.0f), 
-        glm::vec3(-1.5f, -2.2f, -2.5f),  
-        glm::vec3(-3.8f, -2.0f, -12.3f),  
-        glm::vec3( 2.4f, -0.4f, -3.5f),  
-        glm::vec3(-1.7f,  3.0f, -7.5f),  
-        glm::vec3( 1.3f, -2.0f, -2.5f),   
-        glm::vec3( 1.5f,  2.0f, -2.5f),  
-        glm::vec3( 1.5f,  0.2f, -1.5f), 
-        glm::vec3(-1.3f,  1.0f, -1.5f)  
-    };
-
-    constexpr std::array<float, 30> groundVertices = {
-         // Position          // UV
-        -1000, -1, -1000,        0, 0,
-        -1000, -1,  1000,        0, 1,
-        1000, -1,  1000,        1, 1,
-
-        -1000, -1, -1000,        0, 0,
-        1000, -1,  1000,        1, 1,
-        1000, -1, -1000,        1, 0
+        glm::vec3( 0.0f,  0.0f,  0.0f),
+        glm::vec3( 2.0f,  5.0f, -15.0f),
+        glm::vec3(-1.5f, -2.2f, -2.5f),
+        glm::vec3(-3.8f, -2.0f, -12.3f),
+        glm::vec3( 2.4f, -0.4f, -3.5f),
+        glm::vec3(-1.7f,  3.0f, -7.5f),
+        glm::vec3( 1.3f, -2.0f, -2.5f),
+        glm::vec3( 1.5f,  2.0f, -2.5f),
+        glm::vec3( 1.5f,  0.2f, -1.5f),
+        glm::vec3(-1.3f,  1.0f, -1.5f)
     };
     // clang-format on
 
@@ -308,7 +297,7 @@ int main()
         float velocity[3];
     };
 
-    constexpr GLsizei particleCount = 100000;
+    constexpr GLsizei particleCount = 500000;
     std::vector<ParticleState> initialParticles( particleCount );
 
     std::mt19937 rng( 42 );
@@ -395,152 +384,156 @@ int main()
     GLuint grass_tex;
     utils::gen_texture( grass_tex, "saul.jpg" );
 
-    // Render loop
-    while( !glfwWindowShouldClose( window ) )
     {
-        UTILS_SCOPED_TIMER( "Render Block" )
-        glfwPollEvents();
+        utils::FramePacer framePacer( window );
+        lastFrame = static_cast<float>( glfwGetTime() );
 
-        float t   = static_cast<float>( glfwGetTime() );
-        float dt  = t - lastFrame;
-        lastFrame = t;
-
-        process_input( window, *camera, dt );
-
-        // Correct camera position
-        glm::vec3 cameraPosition  = camera->getPosition();
-        constexpr float eyeHeight = 1.3f;
-        float minimumY            = terrain->getElevationAt( cameraPosition.x, cameraPosition.z ) + eyeHeight;
-        cameraPosition.y          = std::max( minimumY, cameraPosition.y );
-        camera->setPosition( cameraPosition );
-
-        int fbW, fbH, windowW, windowH;
-        glfwGetFramebufferSize( window, &fbW, &fbH );
-        glfwGetWindowSize( window, &windowW, &windowH );
-
-        // Skip rendering when minimized or without a drawable area.
-        if( fbW <= 0 || fbH <= 0 || windowW <= 0 || windowH <= 0 )
-            continue;
-
-        utils::beginFrame( fbW, fbH );
-
-        // Generic constants
-        double mouseX, mouseY;
-        glfwGetCursorPos( window, &mouseX, &mouseY );
-        const float mx     = static_cast<float>( mouseX * fbW / windowW );
-        const float my     = static_cast<float>( ( windowH - mouseY ) * fbH / windowH );
-        const float aspect = static_cast<float>( fbW ) / fbH;
-
-        // --- Ground ---
-
-        utils::beginOpaquePass();
-
-        groundShader.use();
-        groundShader.setUniform( "groundTexture", 0 ); // Texture unit 0
-        groundShader.setUniform( "model", glm::mat4( 1.0f ) );
-        groundShader.setUniform( "view", camera->getViewMatrix() );
-        groundShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
-        groundShader.setUniform( "t", t );
-
-        glActiveTexture( GL_TEXTURE0 );
-        glBindTexture( GL_TEXTURE_2D, grass_tex );
-
-        glBindVertexArray( terrainVAO );
-        glDrawElements( GL_TRIANGLES, terrain->getIndicesSize(), GL_UNSIGNED_INT, nullptr );
-
-        // --- Cubes ---
-
-        // utils::beginOpaquePass();
-
-        // cubeShader.use();
-        // cubeShader.setUniform( "view", camera->getViewMatrix() );
-        // cubeShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
-        // cubeShader.setUniform( "theta", theta );
-        // cubeShader.setUniform( "t", t );
-        // cubeShader.setUniform( "mix_param", mix_param );
-
-        // glActiveTexture( GL_TEXTURE0 );
-        // glBindTexture( GL_TEXTURE_2D, wall_tex );
-        // glActiveTexture( GL_TEXTURE1 );
-        // glBindTexture( GL_TEXTURE_2D, saul_tex );
-
-        // // Draw boxes
-        // glBindVertexArray( vao );
-        // for( size_t i{ cubePositions.size() }; i-- > 0; )
-        // {
-        //     glm::mat4 model = glm::translate( I4, cubePositions[i] );
-        //     float angle     = 20.0f * i; // Provide a random angle
-        //     model           = glm::rotate( model, glm::radians( angle ), glm::vec3( 1.0f, 0.3f, 0.5f ) );
-        //     cubeShader.setUniform( "model", model );
-        //     glDrawArrays( GL_TRIANGLES, 0, 36 );
-        // }
-
-        // --- Update Particle Pass ---
-
-        // Unproject the cursor into a world-space ray, then intersect Z = 0.
-        // A screen position alone has no depth, so this plane defines the target.
-        
-        const glm::mat4& view       = camera->getViewMatrix();
-        const glm::mat4& projection = camera->getProjectionMatrix( aspect );
-        const glm::vec4 viewport( 0.0f, 0.0f, float( fbW ), float( fbH ) );
-        const glm::vec3 rayStart     = glm::unProject( glm::vec3( mx, my, 0.0f ), view, projection, viewport );
-        const glm::vec3 rayEnd       = glm::unProject( glm::vec3( mx, my, 1.0f ), view, projection, viewport );
-        const glm::vec3 rayDirection = glm::normalize( rayEnd - rayStart );
-
-        glm::vec3 mouseTarget( 0.0f );
-        bool mouseActive        = false;
-        const bool cursorInside = mouseX >= 0.0 && mouseX < windowW && mouseY >= 0.0 && mouseY < windowH;
-        if( cursorInside && glfwGetWindowAttrib( window, GLFW_FOCUSED ) &&
-            glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT ) == GLFW_PRESS && std::abs( rayDirection.z ) > 0.001f )
+        // Render loop
+        while( framePacer.waitForNextFrame() )
         {
-            const float distance = -rayStart.z / rayDirection.z;
-            // Ignore intersections behind the camera or beyond the visible ray.
-            if( distance >= 0.0f && distance <= glm::length( rayEnd - rayStart ) )
+            // UTILS_SCOPED_TIMER( "Render Time" )
+
+            float t   = static_cast<float>( glfwGetTime() );
+            float dt  = std::min( t - lastFrame, 0.033f );
+            lastFrame = t;
+
+            process_input( window, *camera, dt );
+
+            // Correct camera position
+            glm::vec3 cameraPosition  = camera->getPosition();
+            constexpr float eyeHeight = 1.3f;
+            float minimumY            = terrain->getElevationAt( cameraPosition.x, cameraPosition.z ) + eyeHeight;
+            cameraPosition.y          = std::max( minimumY, cameraPosition.y );
+            camera->setPosition( cameraPosition );
+
+            int fbW, fbH, windowW, windowH;
+            glfwGetFramebufferSize( window, &fbW, &fbH );
+            glfwGetWindowSize( window, &windowW, &windowH );
+
+            // Skip rendering when minimized or without a drawable area.
+            if( fbW <= 0 || fbH <= 0 || windowW <= 0 || windowH <= 0 )
+                continue;
+
+            utils::beginFrame( fbW, fbH );
+
+            // Generic constants
+            double mouseX, mouseY;
+            glfwGetCursorPos( window, &mouseX, &mouseY );
+            const float mx     = static_cast<float>( mouseX * fbW / windowW );
+            const float my     = static_cast<float>( ( windowH - mouseY ) * fbH / windowH );
+            const float aspect = static_cast<float>( fbW ) / fbH;
+
+            // --- Ground ---
+
+            utils::beginOpaquePass();
+
+            groundShader.use();
+            groundShader.setUniform( "groundTexture", 0 ); // Texture unit 0
+            groundShader.setUniform( "model", glm::mat4( 1.0f ) );
+            groundShader.setUniform( "view", camera->getViewMatrix() );
+            groundShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
+            groundShader.setUniform( "t", t );
+
+            glActiveTexture( GL_TEXTURE0 );
+            glBindTexture( GL_TEXTURE_2D, grass_tex );
+
+            glBindVertexArray( terrainVAO );
+            glDrawElements( GL_TRIANGLES, terrain->getIndicesSize(), GL_UNSIGNED_INT, nullptr );
+
+            // --- Cubes ---
+
+            // utils::beginOpaquePass();
+
+            // cubeShader.use();
+            // cubeShader.setUniform( "view", camera->getViewMatrix() );
+            // cubeShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
+            // cubeShader.setUniform( "theta", theta );
+            // cubeShader.setUniform( "t", t );
+            // cubeShader.setUniform( "mix_param", mix_param );
+
+            // glActiveTexture( GL_TEXTURE0 );
+            // glBindTexture( GL_TEXTURE_2D, wall_tex );
+            // glActiveTexture( GL_TEXTURE1 );
+            // glBindTexture( GL_TEXTURE_2D, saul_tex );
+
+            // // Draw boxes
+            // glBindVertexArray( vao );
+            // for( size_t i{ cubePositions.size() }; i-- > 0; )
+            // {
+            //     glm::mat4 model = glm::translate( I4, cubePositions[i] );
+            //     float angle     = 20.0f * i; // Provide a random angle
+            //     model           = glm::rotate( model, glm::radians( angle ), glm::vec3( 1.0f, 0.3f, 0.5f ) );
+            //     cubeShader.setUniform( "model", model );
+            //     glDrawArrays( GL_TRIANGLES, 0, 36 );
+            // }
+
+            // --- Update Particle Pass ---
+
+            // Unproject the cursor into a world-space ray, then intersect Z = 0.
+            // A screen position alone has no depth, so this plane defines the target.
+
+            const glm::mat4& view       = camera->getViewMatrix();
+            const glm::mat4& projection = camera->getProjectionMatrix( aspect );
+            const glm::vec4 viewport( 0.0f, 0.0f, float( fbW ), float( fbH ) );
+            const glm::vec3 rayStart     = glm::unProject( glm::vec3( mx, my, 0.0f ), view, projection, viewport );
+            const glm::vec3 rayEnd       = glm::unProject( glm::vec3( mx, my, 1.0f ), view, projection, viewport );
+            const glm::vec3 rayDirection = glm::normalize( rayEnd - rayStart );
+
+            glm::vec3 mouseTarget( 0.0f );
+            bool mouseActive        = false;
+            const bool cursorInside = mouseX >= 0.0 && mouseX < windowW && mouseY >= 0.0 && mouseY < windowH;
+            if( cursorInside && glfwGetWindowAttrib( window, GLFW_FOCUSED ) &&
+                glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT ) == GLFW_PRESS && std::abs( rayDirection.z ) > 0.001f )
             {
-                mouseTarget = rayStart + distance * rayDirection;
-                mouseActive = true;
+                const float distance = -rayStart.z / rayDirection.z;
+                // Ignore intersections behind the camera or beyond the visible ray.
+                if( distance >= 0.0f && distance <= glm::length( rayEnd - rayStart ) )
+                {
+                    mouseTarget = rayStart + distance * rayDirection;
+                    mouseActive = true;
+                }
             }
+
+            particleUpdateShader.use();
+            particleUpdateShader.setUniform( "dt", std::min( dt, 0.033f ) );
+            particleUpdateShader.setUniform( "acceleration", glm::vec3( 0.0f ) );
+            particleUpdateShader.setUniform( "mouseTarget", mouseTarget );
+            particleUpdateShader.setUniform( "mouseActive", mouseActive ? 1 : 0 );
+            particleUpdateShader.setUniform( "attractionStrength", 2.0f );
+
+            glBindVertexArray( updateVAOs[readIndex] );
+
+            glBindBufferBase( GL_TRANSFORM_FEEDBACK_BUFFER, 0, particleBuffers[writeIndex] );
+            glEnable( GL_RASTERIZER_DISCARD );
+
+            glBeginTransformFeedback( GL_POINTS );
+            glDrawArrays( GL_POINTS, 0, particleCount );
+            glEndTransformFeedback();
+
+            glDisable( GL_RASTERIZER_DISCARD );
+            glBindBufferBase( GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0 );
+
+            // --- Render Paritcle Pass ---
+
+            utils::beginParticlePass();
+
+            particleRenderShader.use();
+            particleRenderShader.setUniform( "view", view );
+            particleRenderShader.setUniform( "proj", projection );
+
+            glBindVertexArray( renderVAOs[writeIndex] );
+            glDrawArraysInstanced( GL_TRIANGLE_STRIP, 0, 4, particleCount );
+
+            // --- End Particle Pass ---
+
+            std::swap( readIndex, writeIndex );
+
+            // --- End Draw ---
+
+            glfwSwapBuffers( window );
         }
 
-        particleUpdateShader.use();
-        particleUpdateShader.setUniform( "dt", std::min( dt, 0.033f ) );
-        particleUpdateShader.setUniform( "acceleration", glm::vec3( 0.0f ) );
-        particleUpdateShader.setUniform( "mouseTarget", mouseTarget );
-        particleUpdateShader.setUniform( "mouseActive", mouseActive ? 1 : 0 );
-        particleUpdateShader.setUniform( "attractionStrength", 2.0f );
-
-        glBindVertexArray( updateVAOs[readIndex] );
-
-        glBindBufferBase( GL_TRANSFORM_FEEDBACK_BUFFER, 0, particleBuffers[writeIndex] );
-        glEnable( GL_RASTERIZER_DISCARD );
-
-        glBeginTransformFeedback( GL_POINTS );
-        glDrawArrays( GL_POINTS, 0, particleCount );
-        glEndTransformFeedback();
-
-        glDisable( GL_RASTERIZER_DISCARD );
-        glBindBufferBase( GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0 );
-
-        // --- Render Paritcle Pass ---
-
-        utils::beginParticlePass();
-
-        particleRenderShader.use();
-        particleRenderShader.setUniform( "view", view );
-        particleRenderShader.setUniform( "proj", projection );
-
-        glBindVertexArray( renderVAOs[writeIndex] );
-        glDrawArraysInstanced( GL_TRIANGLE_STRIP, 0, 4, particleCount );
-
-        // --- End Particle Pass ---
-
-        std::swap( readIndex, writeIndex );
-
-#ifdef __APPLE__
-        // glFinish(); // optional to synchronize draw calls. Reduces stuttering on OSX
-#endif
-        glfwSwapBuffers( window );
-    }
+    } // Stop frame callbacks before releasing OpenGL resources and the window.
 
     // de-allocate all resources once they've outlived their purpose
     const GLuint textures[] = { wall_tex, saul_tex, grass_tex };

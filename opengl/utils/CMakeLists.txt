@@ -13,6 +13,12 @@ endif()
 
 # --- Dependencies ---
 
+if(APPLE)
+    find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
+    find_library(COREGRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
+    target_link_libraries(${TARGET} PRIVATE ${APPKIT_FRAMEWORK} ${COREGRAPHICS_FRAMEWORK})
+endif()
+
 target_link_libraries(${TARGET} PUBLIC
     OpenGL::GL
     glfw
