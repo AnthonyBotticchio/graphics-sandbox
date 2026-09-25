@@ -391,7 +391,7 @@ int main()
         // Render loop
         while( framePacer.waitForNextFrame() )
         {
-            UTILS_SCOPED_TIMER( "Render Time" )
+            // UTILS_SCOPED_TIMER( "Render Time" )
 
             float t   = static_cast<float>( glfwGetTime() );
             float dt  = std::min( t - lastFrame, 0.033f );

@@ -29,27 +29,13 @@ namespace utils
     class [[nodiscard]] ScopedTimer
     {
       public:
-        ScopedTimer( const char* name = "Unknown" )
-        {
-            m_name  = name;
-            m_start = std::chrono::steady_clock::now();
-        }
+        explicit ScopedTimer( const char* name = "Unknown" );
+        virtual ~ScopedTimer();
 
-        virtual ~ScopedTimer()
-        {
-            auto end      = std::chrono::steady_clock::now();
-            auto duration = std::chrono::duration<double, std::milli>( end - m_start ); // Fractional milliseconds
-#ifdef UTILS_ENABLE_TIMER_LOGGING
-            log_trace( "%s : %.3f ms", m_name, duration.count() );
-#endif
-        }
-
-      private:
         ScopedTimer( const ScopedTimer& )            = delete;
         ScopedTimer& operator=( const ScopedTimer& ) = delete;
-        ScopedTimer( ScopedTimer&& )                 = delete;
-        ScopedTimer& operator=( ScopedTimer&& )      = delete;
 
+      private:
         const char* m_name;
         std::chrono::steady_clock::time_point m_start;
     };

@@ -12,7 +12,7 @@ namespace utils
     {
       public:
         explicit FramePacer( GLFWwindow* window );
-        ~FramePacer();
+        virtual ~FramePacer();
 
         FramePacer( const FramePacer& )            = delete;
         FramePacer& operator=( const FramePacer& ) = delete;
