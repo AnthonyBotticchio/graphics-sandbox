@@ -42,17 +42,16 @@ const std::vector<unsigned int>& Terrain::getIndices() const
 const float Terrain::getElevationAt( float x, float z )
 {
     // Bend the ridges along Z.
-    float warpedX = x + 18.0f * std::sin(z * 0.012f);
+    float warpedX = x + 18.0f * std::sin( z * 0.012f );
 
     // Dunes roughly 180 world units apart.
-    float phase = warpedX * (6.283185f / 180.0f) * 5.0f;
+    float phase = warpedX * ( 6.283185f / 180.0f ) * 5.0f;
 
     // A second harmonic makes the slopes asymmetric.
-    float dunes = std::sin(phase)
-                + 0.25f * std::sin(2.0f * phase);
+    float dunes = std::sin( phase ) + 0.25f * std::sin( 2.0f * phase );
 
     // Slowly vary their height along the ridges.
-    float height = 5.0f + 3.0f * std::sin(z * 0.008f);
+    float height = 5.0f + 3.0f * std::sin( z * 0.008f );
 
     return -5.0f + height * dunes;
 }

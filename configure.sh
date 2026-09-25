@@ -30,9 +30,12 @@ linux() {
         libglfw3-dev
         libglew-dev
         libglm-dev
+        glslang-tools
         cmake
         ninja-build
         clang-format
+        build-essential
+        libyaml-cpp-dev
     )
 
     sudo apt update && sudo apt install -y --no-install-recommends "${DEPENDENCIES[@]}"
@@ -51,9 +54,12 @@ macos() {
         glew
         glfw
         glm
+        glslang
         cmake
         clang-format
         ninja
+        yaml-cpp
+        coreutils
     )
     
     brew install "${DEPENDENCIES[@]}"
