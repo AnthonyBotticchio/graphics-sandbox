@@ -40,7 +40,7 @@ namespace utils
             auto end      = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration<double, std::milli>( end - m_start ); // Fractional milliseconds
 #ifdef UTILS_ENABLE_TIMER_LOGGING
-            log_trace( "ScopedTimer - %s : %.3f ms", m_name, duration.count() );
+            log_trace( "%s : %.3f ms", m_name, duration.count() );
 #endif
         }
 

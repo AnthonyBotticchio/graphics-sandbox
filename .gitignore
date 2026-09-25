@@ -6,6 +6,7 @@
 imgui.ini
 .codex
 perf.*
+*.log
 
 # Changes to folders that will be ignored by git.
 # Format: [folder_name]/

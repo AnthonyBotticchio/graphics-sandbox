@@ -297,7 +297,7 @@ int main()
         float velocity[3];
     };
 
-    constexpr GLsizei particleCount = 500000;
+    constexpr GLsizei particleCount = 1000000;
     std::vector<ParticleState> initialParticles( particleCount );
 
     std::mt19937 rng( 42 );
@@ -391,7 +391,7 @@ int main()
         // Render loop
         while( framePacer.waitForNextFrame() )
         {
-            // UTILS_SCOPED_TIMER( "Render Time" )
+            UTILS_SCOPED_TIMER( "Render Time" )
 
             float t   = static_cast<float>( glfwGetTime() );
             float dt  = std::min( t - lastFrame, 0.033f );
@@ -438,7 +438,7 @@ int main()
             glBindTexture( GL_TEXTURE_2D, grass_tex );
 
             glBindVertexArray( terrainVAO );
-            glDrawElements( GL_TRIANGLES, terrain->getIndicesSize(), GL_UNSIGNED_INT, nullptr );
+            glDrawElements( GL_TRIANGLES, static_cast<GLsizei>( terrain->getIndicesSize() ), GL_UNSIGNED_INT, nullptr );
 
             // --- Cubes ---
 
@@ -494,6 +494,7 @@ int main()
                 }
             }
 
+            // Use std::min(dt, 0.033f) to prevent massive time steps during render times
             particleUpdateShader.use();
             particleUpdateShader.setUniform( "dt", std::min( dt, 0.033f ) );
             particleUpdateShader.setUniform( "acceleration", glm::vec3( 0.0f ) );

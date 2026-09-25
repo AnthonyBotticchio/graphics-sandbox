@@ -35,8 +35,22 @@ namespace utils
                 NSNumber* screenNumber                 = screen.deviceDescription[@"NSScreenNumber"];
                 const CGDirectDisplayID currentDisplay = screenNumber ? screenNumber.unsignedIntValue : kCGNullDirectDisplay;
 
+                if( currentDisplay == kCGNullDirectDisplay )
+                {
+                    // Fallback for null display
+                    log_warn( "NSScreen is null. Falling back to 60Hz refresh rate" );
+                    double rate = 60.0;
+
+                    if( rate != refreshRate )
+                    {
+                        refreshRate = rate;
+                        interval  = std::max( Clock::duration( 1 ),
+                                              std::chrono::duration_cast<Clock::duration>( std::chrono::duration<double>( 1.0 / rate ) ) );
+                        nextFrame = Clock::now();
+                    }
+                }
                 // Check screen rate if display is different
-                if( currentDisplay != display )
+                else if( currentDisplay != display )
                 {
                     display     = currentDisplay;
                     double rate = 0.0;
@@ -55,8 +69,13 @@ namespace utils
                             CGDisplayModeRelease( mode );
                         }
                     }
+                    // New display detected
+                    log_info( "Frame pacing: steady-clock timer, %.2f FPS (display %u)", rate, display );
+
                     if( !std::isfinite( rate ) || rate <= 0.0 )
+                    {
                         rate = 60.0;
+                    }
 
                     if( rate != refreshRate )
                     {
@@ -64,7 +83,6 @@ namespace utils
                         interval  = std::max( Clock::duration( 1 ),
                                               std::chrono::duration_cast<Clock::duration>( std::chrono::duration<double>( 1.0 / rate ) ) );
                         nextFrame = Clock::now();
-                        log_info( "Frame pacing: steady-clock timer, %.2f FPS (display %u)", rate, display );
                     }
                 }
             }
@@ -81,20 +99,21 @@ namespace utils
 
     bool FramePacer::waitForNextFrame()
     {
-        // UTILS_SCOPED_TIMER( "waitForNextFrame" )
+        UTILS_SCOPED_TIMER( "waitForNextFrame" )
 
+        m_impl->updateDisplay();
         while( true )
         {
             using namespace std::chrono_literals;
             glfwPollEvents();
             if( glfwWindowShouldClose( m_impl->window ) )
                 return false;
-            m_impl->updateDisplay();
 
             if( !hasDrawableArea( m_impl->window ) )
             {
+                log_trace( "Window does not have a drawable area. Sleeping for 50ms" );
                 m_impl->suspended = true;
-                std::this_thread::sleep_until( Impl::Clock::now() + 50ms );
+                glfwWaitEventsTimeout( 0.05 );
                 continue;
             }
 
@@ -106,13 +125,11 @@ namespace utils
             }
             if( now >= m_impl->nextFrame )
             {
-                // Keep the original cadence, skipping missed slots instead of queuing frames.
                 const auto elapsedSlots = ( now - m_impl->nextFrame ) / m_impl->interval;
                 m_impl->nextFrame += m_impl->interval * ( elapsedSlots + 1 );
                 return true;
             }
 
-            // Bound input/close latency without spinning or adding render time to the interval.
             std::this_thread::sleep_until( std::min( m_impl->nextFrame, now + 10ms ) );
         }
     }
