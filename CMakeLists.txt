@@ -118,5 +118,8 @@ endif()
 # --- Subdirs ---
 
 add_subdirectory(opengl)
-add_subdirectory(vulkan)
-add_subdirectory(external SYSTEM)
+
+if(NOT WIN32)
+    add_subdirectory(vulkan)
+    add_subdirectory(external SYSTEM)
+endif()

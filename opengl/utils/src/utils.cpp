@@ -3,8 +3,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#include <chrono>
-
 #ifdef __APPLE__
     #include <mach-o/dyld.h>
 #endif
