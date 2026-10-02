@@ -24,7 +24,8 @@ endif()
 
 target_link_libraries(${TARGET} PRIVATE
     logger
-    engine
+    ev2-engine
+    ev2-editor
 )
 
 # --- Sources ---
