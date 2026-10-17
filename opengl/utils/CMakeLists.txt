@@ -24,7 +24,7 @@ target_link_libraries(${TARGET} PUBLIC
     OpenGL::GL
     glfw
     glm::glm
-    GLEW::GLEW
+    graphics-glad
     logger
 )
 

@@ -5,14 +5,12 @@ set -euo pipefail
 general() {
     # Detect Platform
     OS=$(uname)
-    PROFILE=linux
-
-    if [ "$OS" = "Darwin" ]; then
-        PROFILE=macos
-    fi
-
-    # Update git submodules
-    git submodule update --init --recursive
+    case "$OS" in
+        Linux) PROFILE=linux ;;
+        Darwin) PROFILE=macos ;;
+        *) echo "Unsupported platform: $OS. Note: use CMake and vcpkg on Windows." >&2; exit 1 ;;
+    esac
+    cd "$(dirname "${BASH_SOURCE[0]}")"
 }
 
 linux() {
@@ -25,12 +23,14 @@ linux() {
 
     # Install dependencies
     DEPENDENCIES=(
-        libgl1-mesa-dev
-        mesa-common-dev
+        git
+        pkg-config
+        libgl-dev
+        libegl-dev
         libglfw3-dev
-        libglew-dev
         libglm-dev
-        glslang-tools
+        libvulkan-dev
+        glslc
         cmake
         ninja-build
         clang-format
@@ -38,7 +38,19 @@ linux() {
         libyaml-cpp-dev
     )
 
-    sudo apt update && sudo apt install -y --no-install-recommends "${DEPENDENCIES[@]}"
+    sudo apt update
+
+    # Ubuntu 26.04 packages the shader Slang compiler; older distros may not.
+    if apt-cache show slang-compiler >/dev/null 2>&1; then
+        DEPENDENCIES+=(slang-compiler)
+    fi
+
+    sudo apt install -y --no-install-recommends "${DEPENDENCIES[@]}"
+
+    if ! pkg-config --atleast-version=3.4 glfw3; then
+        echo "GLFW 3.4+ with Wayland support is required. Upgrade libglfw3-dev." >&2
+        return 1
+    fi
 }
 
 macos() {
@@ -49,12 +61,16 @@ macos() {
         exit 1
     fi
 
+    if ! xcode-select -p >/dev/null 2>&1; then
+        echo "Install Apple's Command Line Tools with xcode-select --install, then re-run." >&2
+        return 1
+    fi
+
     # Install dependencies
     DEPENDENCIES=(
-        glew
         glfw
         glm
-        glslang
+        shaderc
         cmake
         clang-format
         ninja
@@ -115,6 +131,20 @@ macos() {
     printf 'To enable Vulkan in your current terminal, run: source %q\n' "$sdk_setup"
 }
 
+check_tools() {
+    local cmake_version
+    cmake_version=$(cmake --version)
+    cmake_version=${cmake_version%%$'\n'*}
+    if [[ ! "$cmake_version" =~ ([0-9]+)\.([0-9]+) ]] ||
+        (( BASH_REMATCH[1] < 3 || (BASH_REMATCH[1] == 3 && BASH_REMATCH[2] < 28) )); then
+        echo "CMake 3.28+ is required; found $cmake_version." >&2
+        return 1
+    fi
+    if ! command -v slangc >/dev/null 2>&1; then
+        echo "Shader builds need slangc. Enable the Vulkan SDK or install Slang from https://shader-slang.org/tools/."
+    fi
+}
+
 # --- Main execution flow ---
 general
 
@@ -123,3 +153,6 @@ if [ "$PROFILE" = "linux" ]; then
 elif [ "$PROFILE" = "macos" ]; then
     macos
 fi
+
+git submodule update --init --recursive
+check_tools

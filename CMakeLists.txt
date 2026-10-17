@@ -47,6 +47,9 @@ include(GNUInstallDirs)
 
 if(UNIX)
     set(BUILD_SHARED_LIBS ON)
+    
+    # Static dependencies must also support linking into shared libraries.
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
     set(CMAKE_INSTALL_BINDIR bin)
     set(CMAKE_INSTALL_LIBDIR lib)
@@ -55,17 +58,17 @@ if(UNIX)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib) # Shared libs
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib) # Static libs
 
-    # Fix for Xcode
-    foreach(CONFIG Debug Release RelWithDebInfo MinSizeRel)
-        string(TOUPPER ${CONFIG} CONFIG_UPPER)
-        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_BINARY_DIR}/bin)
-        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_BINARY_DIR}/lib)
-        set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_BINARY_DIR}/lib)
-    endforeach()
-
     set(CMAKE_INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
 
     if(APPLE)
+        # Fix for Xcode
+        foreach(CONFIG Debug Release RelWithDebInfo MinSizeRel)
+            string(TOUPPER ${CONFIG} CONFIG_UPPER)
+            set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+            set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+            set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
+        endforeach()
+
         # Ensure homebrew packages are discoverable
         list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew")
         set(CMAKE_INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}")

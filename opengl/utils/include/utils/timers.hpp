@@ -23,8 +23,8 @@ extern "C"
 
 namespace utils
 {
-    /// @brief Creates a timer which logs the amount of time since its creation and deletion. Typically defined at the top of scopes to log
-    /// how long the body of the scope took.
+    /// @brief This is a RAII timer. Creates a timer which logs the amount of time since its creation and deletion. Typically defined at the
+    /// top of scopes to log how long the body of the scope took.
     /// @note [[nodiscard]] fixes temporary ScopedTimer objects
     class [[nodiscard]] ScopedTimer
     {

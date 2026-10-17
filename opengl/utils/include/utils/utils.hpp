@@ -5,8 +5,8 @@
 #include <functional>
 #include <string>
 
-#include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <glad/glad.h>
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 

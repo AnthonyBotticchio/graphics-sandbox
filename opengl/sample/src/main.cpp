@@ -10,8 +10,8 @@
 #include <memory>
 #include <random>
 
-#include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <glad/glad.h>
 #include <glm/ext.hpp>
 
 namespace
@@ -128,6 +128,14 @@ int main()
     // --- Init ---
     setup_logger( NULL, LOG_DEBUG, false );
 
+    // Error
+    glfwSetErrorCallback( []( int code, const char* description ) { log_error( "GLFW error %d: %s", code, description ); } );
+
+#if defined( __linux__ ) && defined( GLFW_PLATFORM )
+    // Use a native Wayland window and EGL context on Linux.
+    // glfwInitHint( GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND );
+#endif
+
     if( !glfwInit() )
     {
         log_error( "GLFW Init Failed" );
@@ -149,18 +157,22 @@ int main()
         return EXIT_FAILURE;
     }
     glfwMakeContextCurrent( window );
+#if defined( __linux__ ) && defined( GLFW_PLATFORM )
+    log_info( "GLFW platform: %s", glfwGetPlatform() == GLFW_PLATFORM_WAYLAND ? "Wayland" : "Other" );
+#endif
     glfwSetFramebufferSizeCallback( window, utils::framebuffer_size_callback );
 
-    std::unique_ptr<Camera> camera =
-        std::make_unique<Camera>( glm::vec3( 0.0f, 0.0f, 3.0f ), glm::vec3( 0.0f, 2.0f, 0.0f ), -90.0f, 0.0f, 0.1f, 500.0f );
+    auto camera = std::make_unique<Camera>( glm::vec3( 0.0f, 0.0f, 3.0f ), glm::vec3( 0.0f, 2.0f, 0.0f ), -90.0f, 0.0f, 0.1f, 500.0f );
     glfwSetWindowUserPointer( window, camera.get() );
     glfwSetInputMode( window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
     glfwSetCursorPosCallback( window, mouse_callback );
     glfwSetScrollCallback( window, scroll_callback );
 
-    if( glewInit() != GLEW_OK )
+    // Test GLAD OpenGL loaded functions
+    if( !gladLoadGLLoader( (GLADloadproc)glfwGetProcAddress ) || !GLAD_GL_VERSION_4_1 )
     {
-        log_error( "GLEW Init Failed" );
+        log_error( "Failed to load OpenGL 4.1 functions" );
+        log_error( "Failed to initialize OpenGL context" );
         glfwDestroyWindow( window );
         glfwTerminate();
         return EXIT_FAILURE;
