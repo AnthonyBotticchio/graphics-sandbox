@@ -4,22 +4,10 @@ set(TARGET sample)
 
 add_executable(${TARGET})
 
-# Release mode optimizations
-if(UNIX)
-    target_compile_options(${TARGET} PRIVATE 
-        $<$<CONFIG:Release>:-O3 -ffast-math -march=native> # -march=native targets local CPU optimizations
-    )
-endif()
-
 # --- Dependencies ---
 
 target_link_libraries(${TARGET} PRIVATE
-    OpenGL::GL
-    glfw
-    glm::glm
-    graphics-glad
-    logger
-    utils
+    opengl-engine
 )
 
 # --- Sources ---
@@ -28,27 +16,25 @@ add_subdirectory(precompiled)
 add_subdirectory(include)
 add_subdirectory(src)
 
-# --- Install ---
+# --- Resources ---
 
-set(SHADER_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/shader)
+set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shader)
 set(TEXTURE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/textures)
+
+add_custom_target(${TARGET}-resources
+    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_newer
+            ${SHADER_DIR} 
+            ${CMAKE_BINARY_DIR}/shader
+    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_newer
+            ${TEXTURE_DIR} 
+            ${CMAKE_BINARY_DIR}/textures
+    COMMENT "Copying OGL shaders and textures..."
+)
+
+add_dependencies(${TARGET} ${TARGET}-resources)
+
+# --- Install ---
 
 install(TARGETS     ${TARGET} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY   ${SHADER_DIR}     DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(DIRECTORY   ${TEXTURE_DIR}    DESTINATION ${CMAKE_INSTALL_PREFIX})
-
-# --- Commands ---
-
-add_custom_command(TARGET ${TARGET} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${SHADER_DIR}
-            ${CMAKE_BINARY_DIR}/shader
-    COMMENT "Copying shaders..."
-)
-
-add_custom_command(TARGET ${TARGET} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${TEXTURE_DIR}
-            ${CMAKE_BINARY_DIR}/textures
-    COMMENT "Copying textures..."
-)

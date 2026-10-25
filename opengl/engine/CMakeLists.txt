@@ -1,15 +1,8 @@
 # --- TARGET ---
 
-set(TARGET utils)
+set(TARGET opengl-engine)
 
 add_library(${TARGET})
-
-# Release mode optimizations
-if(UNIX)
-    target_compile_options(${TARGET} PRIVATE 
-        $<$<CONFIG:Release>:-O3 -ffast-math -march=native> # -march=native targets local CPU optimizations
-    )
-endif()
 
 # --- Dependencies ---
 
@@ -24,7 +17,7 @@ target_link_libraries(${TARGET} PUBLIC
     OpenGL::GL
     glfw
     glm::glm
-    graphics-glad
+    glad-4.1
     logger
 )
 
@@ -36,6 +29,10 @@ add_subdirectory(src)
 # --- Install ---
 
 install(TARGETS ${TARGET}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
+
+# Install include files
+install(DIRECTORY include/engine DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

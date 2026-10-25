@@ -1,6 +1,6 @@
 #include "frame_pacer_common.hpp"
-#include "utils/frame_pacer.hpp"
-#include "utils/timers.hpp"
+#include "engine/frame_pacer.hpp"
+#include "engine/timers.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -33,7 +33,7 @@
 
 @end
 
-namespace utils
+namespace engine
 {
     struct FramePacer::Impl
     {
@@ -111,7 +111,7 @@ namespace utils
 
     bool FramePacer::waitForNextFrame()
     {
-        // UTILS_SCOPED_TIMER( "waitForNextFrame" )
+        // ENGINE_SCOPED_TIMER( "waitForNextFrame" )
 
         while( true )
         {
@@ -166,4 +166,4 @@ namespace utils
             glfwWaitEventsTimeout( std::min( wait, 0.005 ) );
         }
     }
-} // namespace utils
+} // namespace engine

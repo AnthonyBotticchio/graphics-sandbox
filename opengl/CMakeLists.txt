@@ -17,5 +17,5 @@ endif()
 
 # --- Subdirs ---
 
+add_subdirectory(engine)
 add_subdirectory(sample)
-add_subdirectory(utils)

@@ -1,12 +1,16 @@
-#include "camera.hpp"
-#include "shader.hpp"
 #include "terrain.hpp"
-#include "utils/frame_pacer.hpp"
-#include "utils/render.hpp"
-#include "utils/timers.hpp"
-#include "utils/utils.hpp"
+
+#include "engine/camera.hpp"
+#include "engine/frame_pacer.hpp"
+#include "engine/renderer.hpp"
+#include "engine/shader_program.hpp"
+#include "engine/texture.hpp"
+#include "engine/timers.hpp"
+#include "engine/window.hpp"
 
 #include <cmath>
+#include <cstdlib>
+#include <exception>
 #include <memory>
 #include <random>
 
@@ -26,11 +30,10 @@ namespace
     float dZ        = 0.00f;
     float theta     = 0.00f;
     float mix_param = 0.00f;
-    float lastFrame = 0.0f; // Time of last frame
 
     static inline void mouse_callback( GLFWwindow* window, double x, double y )
     {
-        auto* camera = static_cast<Camera*>( glfwGetWindowUserPointer( window ) );
+        auto* camera = static_cast<engine::Camera*>( glfwGetWindowUserPointer( window ) );
         if( camera == nullptr )
             return;
 
@@ -51,12 +54,12 @@ namespace
 
     static inline void scroll_callback( GLFWwindow* window, [[maybe_unused]] double xOffset, double yOffset )
     {
-        auto* camera = static_cast<Camera*>( glfwGetWindowUserPointer( window ) );
+        auto* camera = static_cast<engine::Camera*>( glfwGetWindowUserPointer( window ) );
         if( camera != nullptr )
             camera->processMouseScroll( static_cast<float>( yOffset ) );
     }
 
-    static inline void process_input( GLFWwindow* window, Camera& camera, float dt )
+    static inline void process_input( GLFWwindow* window, engine::Camera& camera, float dt )
     {
         float movement_dt = dt;
 
@@ -72,29 +75,29 @@ namespace
 
         if( glfwGetKey( window, GLFW_KEY_W ) == GLFW_PRESS )
         {
-            camera.processKeyboard( Camera::Movement::FORWARD, movement_dt );
+            camera.processKeyboard( engine::Camera::Movement::FORWARD, movement_dt );
         }
         else if( glfwGetKey( window, GLFW_KEY_S ) == GLFW_PRESS )
         {
-            camera.processKeyboard( Camera::Movement::BACKWARD, movement_dt );
+            camera.processKeyboard( engine::Camera::Movement::BACKWARD, movement_dt );
         }
 
         if( glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS )
         {
-            camera.processKeyboard( Camera::Movement::LEFT, movement_dt );
+            camera.processKeyboard( engine::Camera::Movement::LEFT, movement_dt );
         }
         else if( glfwGetKey( window, GLFW_KEY_D ) == GLFW_PRESS )
         {
-            camera.processKeyboard( Camera::Movement::RIGHT, movement_dt );
+            camera.processKeyboard( engine::Camera::Movement::RIGHT, movement_dt );
         }
 
         if( glfwGetKey( window, GLFW_KEY_E ) == GLFW_PRESS )
         {
-            camera.processKeyboard( Camera::Movement::UP, movement_dt );
+            camera.processKeyboard( engine::Camera::Movement::UP, movement_dt );
         }
         else if( glfwGetKey( window, GLFW_KEY_Q ) == GLFW_PRESS )
         {
-            camera.processKeyboard( Camera::Movement::DOWN, movement_dt );
+            camera.processKeyboard( engine::Camera::Movement::DOWN, movement_dt );
         }
 
         // Pan (yaw) and tilt (pitch), in degrees per second.
@@ -123,69 +126,27 @@ namespace
     }
 } // namespace
 
-int main()
+static int runSample()
 {
-    // --- Init ---
-    setup_logger( NULL, LOG_DEBUG, false );
+    // Declare the window first so all OpenGL resources are released before its context.
+    engine::Window context( { WIDTH, HEIGHT, "LearnOpenGL" } );
+    GLFWwindow* window = context.nativeHandle();
 
-    // Error
-    glfwSetErrorCallback( []( int code, const char* description ) { log_error( "GLFW error %d: %s", code, description ); } );
-
-#if defined( __linux__ ) && defined( GLFW_PLATFORM )
-    // Use a native Wayland window and EGL context on Linux.
-    // glfwInitHint( GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND );
-#endif
-
-    if( !glfwInit() )
-    {
-        log_error( "GLFW Init Failed" );
-        return EXIT_FAILURE;
-    }
-
-    glfwWindowHint( GLFW_CONTEXT_VERSION_MAJOR, 4 );
-    glfwWindowHint( GLFW_CONTEXT_VERSION_MINOR, 1 );
-    glfwWindowHint( GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE );
-#ifdef __APPLE__
-    glfwWindowHint( GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE ); // Required on macOS
-#endif
-
-    GLFWwindow* window = glfwCreateWindow( WIDTH, HEIGHT, "LearnOpenGL", NULL, NULL );
-    if( !window )
-    {
-        log_error( "Failed to create GLFW window" );
-        glfwTerminate();
-        return EXIT_FAILURE;
-    }
-    glfwMakeContextCurrent( window );
-#if defined( __linux__ ) && defined( GLFW_PLATFORM )
-    log_info( "GLFW platform: %s", glfwGetPlatform() == GLFW_PLATFORM_WAYLAND ? "Wayland" : "Other" );
-#endif
-    glfwSetFramebufferSizeCallback( window, utils::framebuffer_size_callback );
-
-    auto camera = std::make_unique<Camera>( glm::vec3( 0.0f, 0.0f, 3.0f ), glm::vec3( 0.0f, 2.0f, 0.0f ), -90.0f, 0.0f, 0.1f, 500.0f );
+    auto camera = std::make_unique<engine::Camera>( glm::vec3( 0.0f, 0.0f, 3.0f ), glm::vec3( 0.0f, 2.0f, 0.0f ), -90.0f, 0.0f, 0.1f, 500.0f );
     glfwSetWindowUserPointer( window, camera.get() );
     glfwSetInputMode( window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
     glfwSetCursorPosCallback( window, mouse_callback );
     glfwSetScrollCallback( window, scroll_callback );
 
-    // Test GLAD OpenGL loaded functions
-    if( !gladLoadGLLoader( (GLADloadproc)glfwGetProcAddress ) || !GLAD_GL_VERSION_4_1 )
-    {
-        log_error( "Failed to load OpenGL 4.1 functions" );
-        log_error( "Failed to initialize OpenGL context" );
-        glfwDestroyWindow( window );
-        glfwTerminate();
-        return EXIT_FAILURE;
-    }
-
-    utils::display_device_info(); // Display startup info
+    // --- Renderer ---
+    engine::Renderer renderer;
 
     // --- Shaders ---
 
-    Shader cubeShader( "vertex.vert", "fragment.frag" );
-    Shader particleRenderShader( "particleRender.vert", "particle.frag" );
-    Shader particleUpdateShader( "particleUpdate.vert", nullptr, { "oPosition", "oVelocity" } );
-    Shader groundShader( "ground.vert", "ground.frag" );
+    engine::ShaderProgram cubeShader( "vertex.vert", "fragment.frag" );
+    engine::ShaderProgram particleRenderShader( "particleRender.vert", "particle.frag" );
+    engine::ShaderProgram particleUpdateShader( "particleUpdate.vert", nullptr, { "oPosition", "oVelocity" } );
+    engine::ShaderProgram terrainShader( "ground.vert", "ground.frag" );
 
     // --- Terrain ---
 
@@ -293,8 +254,8 @@ int main()
 
     // Textures
     GLuint wall_tex, saul_tex;
-    utils::gen_texture( wall_tex, "wall.jpg" );
-    utils::gen_texture( saul_tex, "saul.jpg" );
+    engine::gen_texture( wall_tex, "wall.jpg" );
+    engine::gen_texture( saul_tex, "saul.jpg" );
 
     // Constant Uniforms
     cubeShader.use();
@@ -394,22 +355,39 @@ int main()
     glEnableVertexAttribArray( 1 );
 
     GLuint grass_tex;
-    utils::gen_texture( grass_tex, "saul.jpg" );
+    engine::gen_texture( grass_tex, "saul.jpg" );
 
     {
-        utils::FramePacer framePacer( window );
-        lastFrame = static_cast<float>( glfwGetTime() );
+        engine::FramePacer framePacer( window );
+        float lastFrame = static_cast<float>( glfwGetTime() ); // Time of last frame
+
+        std::random_device rd;
+        std::mt19937 gen( rd() );
+        constexpr float phaseMin = 0.0f;
+        constexpr float phaseMax = TWO_PI;
+        std::uniform_real_distribution<float> distrib( phaseMin, phaseMax );
+        float phase = distrib( gen );
 
         // Render loop
         while( framePacer.waitForNextFrame() )
         {
-            // UTILS_SCOPED_TIMER( "Render Time" )
+            // ENGINE_SCOPED_TIMER( "Render Time" )
 
             float t   = static_cast<float>( glfwGetTime() );
             float dt  = std::min( t - lastFrame, 0.033f );
             lastFrame = t;
 
             process_input( window, *camera, dt );
+
+            // For future render class idea
+            // Input and simulation
+            // particles.update( dt, mouseTarget, mouseActive );
+            //
+            // Drawing
+            // renderer.beginFrame(fbW, fbH, *camera);
+            // renderer.drawTerrain( terrainMesh, phase);
+            // renderer.drawParticles( particles );
+            // context.swapBuffers();
 
             // Correct camera position
             glm::vec3 cameraPosition  = camera->getPosition();
@@ -426,7 +404,7 @@ int main()
             if( fbW <= 0 || fbH <= 0 || windowW <= 0 || windowH <= 0 )
                 continue;
 
-            utils::beginFrame( fbW, fbH );
+            renderer.beginFrame( fbW, fbH );
 
             // Generic constants
             double mouseX, mouseY;
@@ -435,16 +413,20 @@ int main()
             const float my     = static_cast<float>( ( windowH - mouseY ) * fbH / windowH );
             const float aspect = static_cast<float>( fbW ) / fbH;
 
-            // --- Ground ---
+            // --- Terrain ---
 
-            utils::beginOpaquePass();
+            constexpr float duration = 30.0f;
+            phase += TWO_PI * ( dt / duration );
+            phase = std::fmod( phase, TWO_PI );
 
-            groundShader.use();
-            groundShader.setUniform( "groundTexture", 0 ); // Texture unit 0
-            groundShader.setUniform( "model", glm::mat4( 1.0f ) );
-            groundShader.setUniform( "view", camera->getViewMatrix() );
-            groundShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
-            groundShader.setUniform( "t", t );
+            renderer.beginOpaquePass();
+
+            terrainShader.use();
+            terrainShader.setUniform( "groundTexture", 0 ); // Texture unit 0
+            terrainShader.setUniform( "model", glm::mat4( 1.0f ) );
+            terrainShader.setUniform( "view", camera->getViewMatrix() );
+            terrainShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
+            terrainShader.setUniform( "phase", phase );
 
             glActiveTexture( GL_TEXTURE0 );
             glBindTexture( GL_TEXTURE_2D, grass_tex );
@@ -454,20 +436,20 @@ int main()
 
             // --- Cubes ---
 
-            // utils::beginOpaquePass();
-
+            // renderer.beginOpaquePass();
+            //
             // cubeShader.use();
             // cubeShader.setUniform( "view", camera->getViewMatrix() );
             // cubeShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
             // cubeShader.setUniform( "theta", theta );
             // cubeShader.setUniform( "t", t );
             // cubeShader.setUniform( "mix_param", mix_param );
-
+            //
             // glActiveTexture( GL_TEXTURE0 );
             // glBindTexture( GL_TEXTURE_2D, wall_tex );
             // glActiveTexture( GL_TEXTURE1 );
             // glBindTexture( GL_TEXTURE_2D, saul_tex );
-
+            //
             // // Draw boxes
             // glBindVertexArray( vao );
             // for( size_t i{ cubePositions.size() }; i-- > 0; )
@@ -478,14 +460,14 @@ int main()
             //     cubeShader.setUniform( "model", model );
             //     glDrawArrays( GL_TRIANGLES, 0, 36 );
             // }
-
+            //
             // --- Update Particle Pass ---
 
             // Unproject the cursor into a world-space ray, then intersect Z = 0.
             // A screen position alone has no depth, so this plane defines the target.
-
             const glm::mat4& view       = camera->getViewMatrix();
             const glm::mat4& projection = camera->getProjectionMatrix( aspect );
+            const glm::mat4& viewProj   = view * projection;
             const glm::vec4 viewport( 0.0f, 0.0f, float( fbW ), float( fbH ) );
             const glm::vec3 rayStart     = glm::unProject( glm::vec3( mx, my, 0.0f ), view, projection, viewport );
             const glm::vec3 rayEnd       = glm::unProject( glm::vec3( mx, my, 1.0f ), view, projection, viewport );
@@ -508,7 +490,7 @@ int main()
 
             // Use std::min(dt, 0.033f) to prevent massive time steps during render times
             particleUpdateShader.use();
-            particleUpdateShader.setUniform( "dt", std::min( dt, 0.033f ) );
+            particleUpdateShader.setUniform( "dt", dt );
             particleUpdateShader.setUniform( "acceleration", glm::vec3( 0.0f ) );
             particleUpdateShader.setUniform( "mouseTarget", mouseTarget );
             particleUpdateShader.setUniform( "mouseActive", mouseActive ? 1 : 0 );
@@ -528,9 +510,10 @@ int main()
 
             // --- Render Paritcle Pass ---
 
-            utils::beginParticlePass();
+            renderer.beginParticlePass();
 
             particleRenderShader.use();
+            particleRenderShader.setUniform( "viewProj", viewProj );
             particleRenderShader.setUniform( "view", view );
             particleRenderShader.setUniform( "proj", projection );
 
@@ -543,7 +526,7 @@ int main()
 
             // --- End Draw ---
 
-            glfwSwapBuffers( window );
+            context.swapBuffers();
         }
 
     } // Stop frame callbacks before releasing OpenGL resources and the window.
@@ -560,15 +543,22 @@ int main()
     glDeleteBuffers( 2, particleBuffers );
     glDeleteBuffers( 1, &terrainVBO );
     glDeleteBuffers( 1, &terrainEBO );
-    glDeleteProgram( cubeShader.getProgram() );
-    glDeleteProgram( particleRenderShader.getProgram() );
-    glDeleteProgram( particleUpdateShader.getProgram() );
-    glDeleteProgram( groundShader.getProgram() );
-    glfwDestroyWindow( window );
-
-    glfwTerminate();
-
-    log_info( "Window terminated successfully" );
-
     return EXIT_SUCCESS;
+}
+
+int main()
+{
+    setup_logger( nullptr, LOG_DEBUG, false );
+
+    try
+    {
+        const int result = runSample();
+        log_info( "Window terminated successfully" );
+        return result;
+    }
+    catch( const std::exception& error )
+    {
+        log_error( "Sample failed: %s", error.what() );
+        return EXIT_FAILURE;
+    }
 }

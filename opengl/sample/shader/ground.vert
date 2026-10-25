@@ -14,9 +14,6 @@ uniform float t;
 
 void main()
 {
-    float t_c = cos( t );
-    float t_s = sin( t );
-
     vec4 wpos = model * vec4( aPos, 1.0 );
 
     aFragPos = wpos.xyz;

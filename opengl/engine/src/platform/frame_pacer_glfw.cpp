@@ -1,7 +1,7 @@
 #include "frame_pacer_common.hpp"
-#include "utils/frame_pacer.hpp"
+#include "engine/frame_pacer.hpp"
 
-namespace utils
+namespace engine
 {
     struct FramePacer::Impl
     {
@@ -30,4 +30,4 @@ namespace utils
         }
         return false;
     }
-} // namespace utils
+} // namespace engine

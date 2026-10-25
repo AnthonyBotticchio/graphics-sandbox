@@ -6,7 +6,9 @@ layout( location = 1 ) in vec2 TexCoord;
 out vec4 FragColor;
 
 uniform sampler2D groundTexture;
-uniform float t;
+uniform float phase;
+
+#define TWO_PI 6.283185f
 
 void main()
 {
@@ -15,14 +17,20 @@ void main()
     vec3 dpdx = dFdx( p );
     vec3 dpdy = dFdy( p );
 
-    vec3 sun = normalize( vec3( sin( t * 0.4 ), 1.0, cos( t * 0.4 ) ) );
+    vec3 sun = normalize( vec3( sin( phase ), 3 * cos( phase ), cos( phase ) ) );
     vec3 n   = cross( dpdx, dpdy );
 
     n = normalize( n );
 
     vec3 rgb = texture( groundTexture, TexCoord * 5000 ).xyz;
 
-    float f = 0.2 + max( dot( n, sun ), 0.f );
+    float direct  = max( dot( n, sun ), 0.f );
+    float ambient = 0.5;
+
+    if( sun.y <= -1.5f )
+        direct = 0.0f;
+
+    float f = ambient + direct;
 
     FragColor = vec4( rgb * f, 1 );
 }

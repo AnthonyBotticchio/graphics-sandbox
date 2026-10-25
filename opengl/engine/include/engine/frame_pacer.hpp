@@ -1,11 +1,14 @@
-#ifndef UTILS_FRAME_PACER_HPP
-#define UTILS_FRAME_PACER_HPP
+#ifndef ENGINE_FRAME_PACER_HPP
+#define ENGINE_FRAME_PACER_HPP
 
 #include <memory>
 
 struct GLFWwindow;
 
-namespace utils
+// TODO: Add a feature for a frame cap rather than using GLFW VSync/Apple DisplayLink for matching fps to a monitor's refresh rate. I
+// suggest using an Enum, one for VSync/Matching display refresh rate, and another for suggested framerate.
+
+namespace engine
 {
     /// @brief Use on the main thread with the window's context current. Destroy before the window.
     class FramePacer
@@ -24,6 +27,6 @@ namespace utils
         struct Impl;
         std::unique_ptr<Impl> m_impl;
     };
-} // namespace utils
+} // namespace engine
 
-#endif // UTILS_FRAME_PACER_HPP
+#endif // ENGINE_FRAME_PACER_HPP

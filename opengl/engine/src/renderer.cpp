@@ -1,10 +1,10 @@
-#include "utils/render.hpp"
+#include "engine/renderer.hpp"
 
 #include <glad/glad.h>
 
-namespace utils
+namespace engine
 {
-    void beginFrame( int width, int height )
+    void Renderer::beginFrame( int width, int height )
     {
         glViewport( 0, 0, width, height );
 
@@ -19,7 +19,7 @@ namespace utils
         glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
     }
 
-    void beginOpaquePass()
+    void Renderer::beginOpaquePass()
     {
         glEnable( GL_DEPTH_TEST );
 
@@ -32,7 +32,7 @@ namespace utils
         glFrontFace( GL_CCW );
     }
 
-    void beginParticlePass()
+    void Renderer::beginParticlePass()
     {
         glEnable( GL_DEPTH_TEST );
 
@@ -45,4 +45,4 @@ namespace utils
 
         glDisable( GL_CULL_FACE );
     }
-} // namespace utils
+} // namespace engine

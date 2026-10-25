@@ -48,9 +48,6 @@ include(GNUInstallDirs)
 if(UNIX)
     set(BUILD_SHARED_LIBS ON)
     
-    # Static dependencies must also support linking into shared libraries.
-    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
     set(CMAKE_INSTALL_BINDIR bin)
     set(CMAKE_INSTALL_LIBDIR lib)
 
@@ -77,6 +74,12 @@ if(UNIX)
     if(CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang")
         add_compile_options(
             # -Werror # Enables warnings as error
+        )
+        
+        # Release mode optimizations
+        add_compile_options(
+            $<$<CONFIG:Release>:-O3> 
+            $<$<CONFIG:Release>:-march=native> # -march=native targets local CPU optimizations
         )
     endif()
 
@@ -121,6 +124,10 @@ endif()
 # --- Subdirs ---
 
 add_subdirectory(opengl)
+
+if(APPLE)
+    add_subdirectory(metal)
+endif()
 
 if(NOT WIN32)
     add_subdirectory(vulkan)

@@ -76,6 +76,9 @@ macos() {
         ninja
         yaml-cpp
         coreutils
+        wget
+        luarocks
+        lua
     )
     
     brew install "${DEPENDENCIES[@]}"

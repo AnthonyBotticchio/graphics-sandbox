@@ -27,6 +27,18 @@ extern "C"
 #define u32 uint32_t
 #define u64 uint64_t
 
+#ifndef QUATPI
+    #define QUATPI 0.785398163397f
+#endif
+
+#ifndef PI
+    #define PI 3.14159265359f
+#endif
+
+#ifndef TWO_PI
+    #define TWO_PI 6.283185f
+#endif
+
 constexpr glm::mat3 I3{ 1.0f };
 constexpr glm::mat4 I4{ 1.0f };
 
