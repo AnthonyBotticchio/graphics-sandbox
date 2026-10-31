@@ -49,4 +49,29 @@ namespace engine
         // Unbind texture
         glBindTexture( GL_TEXTURE_2D, 0 );
     }
+
+    void gen_terrain_texture( GLuint& texture, unsigned int resolution, const void* data )
+    {
+        glGenTextures( 1, &texture );
+        glBindTexture( GL_TEXTURE_2D, texture );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+
+        if( data )
+        {
+            glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
+            glTexImage2D( GL_TEXTURE_2D, 0, GL_R32F, resolution, resolution, 0, GL_RED, GL_FLOAT, data );
+
+            log_trace( "Generated terrain texture. Resolution: %d.", resolution );
+        }
+        else
+        {
+            log_error( "Failed to load terrain texture, data is NULL." );
+        }
+
+        // Unbind texture
+        glBindTexture( GL_TEXTURE_2D, 0 );
+    }
 } // namespace engine

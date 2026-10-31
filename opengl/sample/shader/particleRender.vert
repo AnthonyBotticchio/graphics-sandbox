@@ -3,8 +3,7 @@
 layout( location = 0 ) in vec3 iPosition;
 
 uniform mat4 view;
-uniform mat4 proj;
-uniform mat4 viewProj;
+uniform mat4 projView;
 
 out vec2 localPos;
 
@@ -17,7 +16,6 @@ void main()
     localPos     = corners[gl_VertexID];
 
     // 3D - Billboarded
-    vec4 cameraPosition = view * vec4( iPosition, 1.0 );
-    cameraPosition.xy += radius * localPos;
-    gl_Position = proj * cameraPosition;
+    vec3 offset = transpose( mat3( view ) ) * vec3( radius * localPos, 0.0 );
+    gl_Position = projView * vec4( iPosition + offset, 1.0 );
 }

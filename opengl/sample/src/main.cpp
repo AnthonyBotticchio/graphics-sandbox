@@ -1,5 +1,3 @@
-#include "terrain.hpp"
-
 #include "engine/camera.hpp"
 #include "engine/frame_pacer.hpp"
 #include "engine/renderer.hpp"
@@ -7,10 +5,10 @@
 #include "engine/texture.hpp"
 #include "engine/timers.hpp"
 #include "engine/window.hpp"
+#include "terrain.hpp"
 
 #include <cmath>
 #include <cstdlib>
-#include <exception>
 #include <memory>
 #include <random>
 
@@ -128,17 +126,19 @@ namespace
 
 static int runSample()
 {
-    // Declare the window first so all OpenGL resources are released before its context.
+    // Declare the window first so all OpenGL resources are released before its context (due to RAII)
     engine::Window context( { WIDTH, HEIGHT, "LearnOpenGL" } );
     GLFWwindow* window = context.nativeHandle();
 
-    auto camera = std::make_unique<engine::Camera>( glm::vec3( 0.0f, 0.0f, 3.0f ), glm::vec3( 0.0f, 2.0f, 0.0f ), -90.0f, 0.0f, 0.1f, 500.0f );
+    auto camera =
+        std::make_unique<engine::Camera>( glm::vec3( 0.0f, 0.0f, 3.0f ), glm::vec3( 0.0f, 2.0f, 0.0f ), -90.0f, 0.0f, 0.1f, 500.0f );
     glfwSetWindowUserPointer( window, camera.get() );
     glfwSetInputMode( window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
     glfwSetCursorPosCallback( window, mouse_callback );
     glfwSetScrollCallback( window, scroll_callback );
 
     // --- Renderer ---
+
     engine::Renderer renderer;
 
     // --- Shaders ---
@@ -146,121 +146,13 @@ static int runSample()
     engine::ShaderProgram cubeShader( "vertex.vert", "fragment.frag" );
     engine::ShaderProgram particleRenderShader( "particleRender.vert", "particle.frag" );
     engine::ShaderProgram particleUpdateShader( "particleUpdate.vert", nullptr, { "oPosition", "oVelocity" } );
-    engine::ShaderProgram terrainShader( "ground.vert", "ground.frag" );
+    engine::ShaderProgram terrainShader( "terrain.vert", "terrain.frag" );
 
     // --- Terrain ---
 
-    constexpr unsigned int terrainCells = 500;
-    std::unique_ptr<Terrain> terrain    = std::make_unique<Terrain>( terrainCells, 250.0f );
-
-    // --- Setup ---
-
-    // clang-format off
-    // 6 faces of a cube
-    constexpr GLfloat vertices[] = {
-        // Positions         // Texture
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-        0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-        0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-        0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-        0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-        0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-        0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-        0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-        0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-        0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-        0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-        0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-        0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
-    };
-
-    constexpr GLuint indices[] = {
-        0, 1, 4,  // First triangle
-        1, 3, 4,  // Second triangle
-
-        6, 2, 1,
-        7, 0, 3
-    };
-
-    // Random cube positions in world coordinates
-    constexpr std::array<glm::vec3, 10> cubePositions = {
-        glm::vec3( 0.0f,  0.0f,  0.0f),
-        glm::vec3( 2.0f,  5.0f, -15.0f),
-        glm::vec3(-1.5f, -2.2f, -2.5f),
-        glm::vec3(-3.8f, -2.0f, -12.3f),
-        glm::vec3( 2.4f, -0.4f, -3.5f),
-        glm::vec3(-1.7f,  3.0f, -7.5f),
-        glm::vec3( 1.3f, -2.0f, -2.5f),
-        glm::vec3( 1.5f,  2.0f, -2.5f),
-        glm::vec3( 1.5f,  0.2f, -1.5f),
-        glm::vec3(-1.3f,  1.0f, -1.5f)
-    };
-    // clang-format on
-
-    // --- Cube Bindings ---
-
-    GLuint vao, vbo, ebo;
-    glGenVertexArrays( 1, &vao );
-    glGenBuffers( 1, &vbo );
-    glGenBuffers( 1, &ebo );
-
-    // VBO
-    glBindBuffer( GL_ARRAY_BUFFER, vbo );
-    glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), &vertices, GL_STATIC_DRAW );
-
-    // VAO - must be set after VBO to be bound to it
-    glBindVertexArray( vao );
-    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof( float ), nullptr ); // position attribute
-    glEnableVertexAttribArray( 0 );
-    // glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof( float ), (void*)( 3 * sizeof( float ) ) ); // color attribute
-    // glEnableVertexAttribArray( 1 );
-    glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof( float ), reinterpret_cast<void*>( 3 * sizeof( float ) ) );
-    glEnableVertexAttribArray( 1 );
-
-    // EBO - must be set after VAO to be bound to it
-    glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
-    glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), &indices, GL_STATIC_DRAW );
-
-    // We can unbind the VBO
-    glBindBuffer( GL_ARRAY_BUFFER, 0 );
-
-    // Textures
-    GLuint wall_tex, saul_tex;
-    engine::gen_texture( wall_tex, "wall.jpg" );
-    engine::gen_texture( saul_tex, "saul.jpg" );
-
-    // Constant Uniforms
-    cubeShader.use();
-    cubeShader.setUniform( "texture1", 0 );
-    cubeShader.setUniform( "texture2", 1 );
+    constexpr unsigned int meshCells         = 512;
+    constexpr unsigned int terrainResolution = 512;
+    std::unique_ptr<Terrain> terrain         = std::make_unique<Terrain>( meshCells, terrainResolution, 250.0f );
 
     // --- Particle Bindings ---
 
@@ -284,7 +176,7 @@ static int runSample()
         }
 
         // Constant sideways drift makes the first test easy to recognize.
-        particle.velocity[0] = 0.1f;
+        particle.velocity[0] = 0.0f;
         particle.velocity[1] = 0.0f;
         particle.velocity[2] = 0.0f;
     }
@@ -334,8 +226,13 @@ static int runSample()
     glfwSetInputMode( window, GLFW_CURSOR, GLFW_CURSOR_NORMAL );
     glfwSetCursorPosCallback( window, nullptr ); // Disable camera movement
 
-    // --- Ground Bindings ---
+    // --- Terrain Bindings ---
 
+    // Height Texutre
+    GLuint heightTexture;
+    engine::gen_terrain_texture( heightTexture, terrain->getResolution(), terrain->getHeights().data() );
+
+    // Terrain verticies
     GLuint terrainVAO, terrainVBO, terrainEBO;
     glGenVertexArrays( 1, &terrainVAO );
     glGenBuffers( 1, &terrainVBO );
@@ -371,7 +268,7 @@ static int runSample()
         // Render loop
         while( framePacer.waitForNextFrame() )
         {
-            // ENGINE_SCOPED_TIMER( "Render Time" )
+            ENGINE_SCOPED_TIMER( "Render Time" )
 
             float t   = static_cast<float>( glfwGetTime() );
             float dt  = std::min( t - lastFrame, 0.033f );
@@ -400,18 +297,18 @@ static int runSample()
             glfwGetFramebufferSize( window, &fbW, &fbH );
             glfwGetWindowSize( window, &windowW, &windowH );
 
-            // Skip rendering when minimized or without a drawable area.
-            if( fbW <= 0 || fbH <= 0 || windowW <= 0 || windowH <= 0 )
-                continue;
-
             renderer.beginFrame( fbW, fbH );
 
-            // Generic constants
+            // --- Constants ---
+
             double mouseX, mouseY;
             glfwGetCursorPos( window, &mouseX, &mouseY );
-            const float mx     = static_cast<float>( mouseX * fbW / windowW );
-            const float my     = static_cast<float>( ( windowH - mouseY ) * fbH / windowH );
-            const float aspect = static_cast<float>( fbW ) / fbH;
+            const float mx             = static_cast<float>( mouseX * fbW / windowW );
+            const float my             = static_cast<float>( ( windowH - mouseY ) * fbH / windowH );
+            const float aspect         = static_cast<float>( fbW ) / fbH;
+            const glm::mat4 view       = camera->getViewMatrix();
+            const glm::mat4 projection = camera->getProjectionMatrix( aspect );
+            const glm::mat4 projView   = projection * view;
 
             // --- Terrain ---
 
@@ -422,10 +319,9 @@ static int runSample()
             renderer.beginOpaquePass();
 
             terrainShader.use();
-            terrainShader.setUniform( "groundTexture", 0 ); // Texture unit 0
+            terrainShader.setUniform( "terrainTexture", 0 ); // Texture unit 0
             terrainShader.setUniform( "model", glm::mat4( 1.0f ) );
-            terrainShader.setUniform( "view", camera->getViewMatrix() );
-            terrainShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
+            terrainShader.setUniform( "projView", projView );
             terrainShader.setUniform( "phase", phase );
 
             glActiveTexture( GL_TEXTURE0 );
@@ -434,40 +330,10 @@ static int runSample()
             glBindVertexArray( terrainVAO );
             glDrawElements( GL_TRIANGLES, static_cast<GLsizei>( terrain->getIndicesSize() ), GL_UNSIGNED_INT, nullptr );
 
-            // --- Cubes ---
-
-            // renderer.beginOpaquePass();
-            //
-            // cubeShader.use();
-            // cubeShader.setUniform( "view", camera->getViewMatrix() );
-            // cubeShader.setUniform( "proj", camera->getProjectionMatrix( aspect ) );
-            // cubeShader.setUniform( "theta", theta );
-            // cubeShader.setUniform( "t", t );
-            // cubeShader.setUniform( "mix_param", mix_param );
-            //
-            // glActiveTexture( GL_TEXTURE0 );
-            // glBindTexture( GL_TEXTURE_2D, wall_tex );
-            // glActiveTexture( GL_TEXTURE1 );
-            // glBindTexture( GL_TEXTURE_2D, saul_tex );
-            //
-            // // Draw boxes
-            // glBindVertexArray( vao );
-            // for( size_t i{ cubePositions.size() }; i-- > 0; )
-            // {
-            //     glm::mat4 model = glm::translate( I4, cubePositions[i] );
-            //     float angle     = 20.0f * i; // Provide a random angle
-            //     model           = glm::rotate( model, glm::radians( angle ), glm::vec3( 1.0f, 0.3f, 0.5f ) );
-            //     cubeShader.setUniform( "model", model );
-            //     glDrawArrays( GL_TRIANGLES, 0, 36 );
-            // }
-            //
             // --- Update Particle Pass ---
 
             // Unproject the cursor into a world-space ray, then intersect Z = 0.
             // A screen position alone has no depth, so this plane defines the target.
-            const glm::mat4& view       = camera->getViewMatrix();
-            const glm::mat4& projection = camera->getProjectionMatrix( aspect );
-            const glm::mat4& viewProj   = view * projection;
             const glm::vec4 viewport( 0.0f, 0.0f, float( fbW ), float( fbH ) );
             const glm::vec3 rayStart     = glm::unProject( glm::vec3( mx, my, 0.0f ), view, projection, viewport );
             const glm::vec3 rayEnd       = glm::unProject( glm::vec3( mx, my, 1.0f ), view, projection, viewport );
@@ -490,8 +356,15 @@ static int runSample()
 
             // Use std::min(dt, 0.033f) to prevent massive time steps during render times
             particleUpdateShader.use();
+
+            glActiveTexture( GL_TEXTURE1 );
+            glBindTexture( GL_TEXTURE_2D, heightTexture );
+
+            particleUpdateShader.setUniform( "heightmap", 1 ); // Texture unit 1
+            particleUpdateShader.setUniform( "terrainMin", terrain->getMinXZ() );
+            particleUpdateShader.setUniform( "terrainSize", terrain->getSize() );
             particleUpdateShader.setUniform( "dt", dt );
-            particleUpdateShader.setUniform( "acceleration", glm::vec3( 0.0f ) );
+            particleUpdateShader.setUniform( "acceleration", glm::vec3( 0.0f, -0.0f, 0.0f ) );
             particleUpdateShader.setUniform( "mouseTarget", mouseTarget );
             particleUpdateShader.setUniform( "mouseActive", mouseActive ? 1 : 0 );
             particleUpdateShader.setUniform( "attractionStrength", 2.0f );
@@ -513,9 +386,8 @@ static int runSample()
             renderer.beginParticlePass();
 
             particleRenderShader.use();
-            particleRenderShader.setUniform( "viewProj", viewProj );
+            particleRenderShader.setUniform( "projView", projView );
             particleRenderShader.setUniform( "view", view );
-            particleRenderShader.setUniform( "proj", projection );
 
             glBindVertexArray( renderVAOs[writeIndex] );
             glDrawArraysInstanced( GL_TRIANGLE_STRIP, 0, 4, particleCount );
@@ -532,14 +404,11 @@ static int runSample()
     } // Stop frame callbacks before releasing OpenGL resources and the window.
 
     // de-allocate all resources once they've outlived their purpose
-    const GLuint textures[] = { wall_tex, saul_tex, grass_tex };
+    const GLuint textures[] = { grass_tex, heightTexture };
     glDeleteTextures( static_cast<GLuint>( sizeof( textures ) / sizeof( GLuint ) ), textures );
-    glDeleteVertexArrays( 1, &vao );
     glDeleteVertexArrays( 2, updateVAOs );
     glDeleteVertexArrays( 2, renderVAOs );
     glDeleteVertexArrays( 1, &terrainVAO );
-    glDeleteBuffers( 1, &vbo );
-    glDeleteBuffers( 1, &ebo );
     glDeleteBuffers( 2, particleBuffers );
     glDeleteBuffers( 1, &terrainVBO );
     glDeleteBuffers( 1, &terrainEBO );
@@ -550,15 +419,7 @@ int main()
 {
     setup_logger( nullptr, LOG_DEBUG, false );
 
-    try
-    {
-        const int result = runSample();
-        log_info( "Window terminated successfully" );
-        return result;
-    }
-    catch( const std::exception& error )
-    {
-        log_error( "Sample failed: %s", error.what() );
-        return EXIT_FAILURE;
-    }
+    const int result = runSample();
+    log_info( "Window terminated successfully" );
+    return result;
 }

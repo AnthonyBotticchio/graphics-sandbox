@@ -19,6 +19,11 @@ namespace
         glViewport( 0, 0, width, height );
         log_trace( "framebuffer callback - width: %d, height: %d", width, height );
     }
+
+    void glfwErrorCallback( int code, const char* description )
+    {
+        log_error( "GLFW error %d: %s", code, description );
+    }
 } // namespace
 
 namespace engine
@@ -26,11 +31,16 @@ namespace engine
     Window::Window( const WindowConfig& config )
     {
         if( windowActive )
+        {
             throw std::runtime_error( "Only one engine Window may be active at a time" );
-        if( config.width <= 0 || config.height <= 0 )
-            throw std::runtime_error( "Window dimensions must be positive" );
+        }
 
-        glfwSetErrorCallback( []( int code, const char* description ) { log_error( "GLFW error %d: %s", code, description ); } );
+        if( config.width <= 0 || config.height <= 0 )
+        {
+            throw std::runtime_error( "Window dimensions must be positive" );
+        }
+
+        glfwSetErrorCallback( glfwErrorCallback );
 
         if( !glfwInit() )
         {
@@ -59,7 +69,7 @@ namespace engine
             glfwDestroyWindow( m_window );
             m_window = nullptr;
             glfwTerminate();
-            throw std::runtime_error( "Failed to load OpenGL 4.1 functions" );
+            throw std::runtime_error( "Failed to load OpenGL 4.1 functions from GLAD" );
         }
 
         glfwSetFramebufferSizeCallback( m_window, framebufferSizeCallback );

@@ -9,40 +9,38 @@ uniform vec3 mouseTarget;
 uniform bool mouseActive;
 uniform float attractionStrength;
 
-#define MAX_LOADED_GRID_WIDTH 3
-
-uniform vec2 heightmapBottomLeft;
-uniform float heightmapScale;
-uniform sampler2DArray heightmaps;
+uniform sampler2D heightmap;
+uniform vec2 terrainMin;
+uniform float terrainSize;
 
 out vec3 oPosition;
 out vec3 oVelocity;
 
-vec3 getTexCoord( vec2 p )
+float elevationAt( vec2 xz )
 {
-    vec2 gridPos = clamp( ( p - heightmapBottomLeft ) / heightmapScale, vec2( 0 ), vec2( 3 - 1e-6 ) );
-    return vec2( fract( gridPos.x ), gridPos.y * MAX_LOADED_GRID_WIDTH + gridPos.x );
-}
+    // Where 0 is the minimum mipmap level - full resolution. textureSize returns an ivec2, so we cast to vec2
+    vec2 resolution = vec2( textureSize( heightmap, 0 ) );
+    vec2 normalized = ( xz - terrainMin ) / terrainSize;
+    vec2 grid       = normalized * ( resolution - 1 );
+    vec2 uv         = ( grid + 0.5 ) / resolution;
 
-float elevationAt( vec3 p )
-{
-    vec3 texc = getTexCoord( p );
-    return texture( heightmap, texc ).r;
+    return textureLod( heightmap, uv, 0.0 ).r;
 }
 
 vec3 normalAt( vec2 p )
 {
-    vec3 texc = getTexCoord( p );
-    vec2 h    = vec2( 1.f ) / vec2( textureSize( heightmap ) );
+    vec2 resolution = vec2( textureSize( heightmap, 0 ) );
+    vec2 spacing    = vec2( terrainSize ) / ( resolution - 1.0 );
 
-    float l = texture( heightmap, texc + vec3( -h.x, 0, 0 ) );
-    float r = texture( heightmap, texc + vec3( h.x, 0, 0 ) );
-    float b = texture( heightmap, texc + vec3( 0, -h.y, 0 ) );
-    float t = texture( heightmap, texc + vec3( 0, h.y, 0 ) );
+    float l = elevationAt( p + vec2( -spacing.x, 0 ) );
+    float r = elevationAt( p + vec2( spacing.x, 0 ) );
+    float b = elevationAt( p + vec2( 0, -spacing.y ) );
+    float t = elevationAt( p + vec2( 0, spacing.y ) );
 
-    vec2 grad = vec2( r - l, t - b ) / ( heightmapScale * h );
+    float dhdx = ( r - l ) / ( 2.0 * spacing.x );
+    float dhdy = ( t - b ) / ( 2.0 * spacing.y );
 
-    return normalize( -grad.x, -grad.y, 1 );
+    return normalize( vec3( -dhdx, 1.0, -dhdy ) );
 }
 
 void main()
@@ -61,21 +59,18 @@ void main()
     oVelocity = ( iVelocity + totalAcceleration * dt ) * drag;
     oPosition = iPosition + oVelocity * dt;
 
-    float dstElevation = elevationAt( oPosition.xy );
-
     const float damping = 0.8;
-
-    // We will collide with the surface
-    vec3 tCollision = 0.5;
-    if( oPosition.z < dstElevation )
+    vec2 terrainMax = terrainMin + vec2( terrainSize );
+    bool insideTerrain = all( greaterThanEqual( oPosition.xz, terrainMin ) ) &&
+                         all( lessThanEqual( oPosition.xz, terrainMax ) );
+    float terrainY = elevationAt( oPosition.xz );
+    if( insideTerrain && oPosition.y < terrainY )
     {
-        // for (int i ;...  Do newton's method iterations for better accuracy
-
-        vec3 collisionPos = mix( iPosition, oPosition, tCollision );
-        vec3 normal       = normalAt( collisionPos.xy );
-
-        oPosition = collisionPos;
-        oVelocity = oVelocity - ( 1.0 + damping ) * dot( oVelocity, normal ) * normal;
+        oPosition.y = terrainY;
+        vec3 normal = normalAt( oPosition.xz );
+        float vn = dot( oVelocity, normal );
+        if( vn < 0.0 )
+            oVelocity -= ( 1.0 + damping ) * vn * normal;
     }
 
     gl_Position = vec4( oPosition, 1.0 );

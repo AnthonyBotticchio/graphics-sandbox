@@ -7,8 +7,7 @@ layout( location = 0 ) out vec3 aFragPos;
 layout( location = 1 ) out vec2 TexCoord;
 layout( location = 2 ) out float out_t;
 
-uniform mat4 proj;
-uniform mat4 view;
+uniform mat4 projView;
 uniform mat4 model;
 uniform float t;
 
@@ -20,5 +19,5 @@ void main()
     TexCoord = aTexCoord;
     out_t = t;
 
-    gl_Position = proj * view * wpos;
+    gl_Position = projView * wpos;
 }

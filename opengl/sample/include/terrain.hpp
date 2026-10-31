@@ -15,12 +15,18 @@ struct TerrainVertex
 class Terrain
 {
   public:
-    explicit Terrain( unsigned int cells, float size );
+    explicit Terrain( unsigned int meshCells, unsigned int heightMapResolution, float size );
     ~Terrain() = default;
+
+    [[nodiscard]] const float getSize() const;
+
+    [[nodiscard]] unsigned int getResolution() const { return m_heightMapResolution; }
 
     [[nodiscard]] const std::vector<TerrainVertex>& getVertices() const;
     [[nodiscard]] const std::vector<unsigned int>& getIndices() const;
+    [[nodiscard]] const std::vector<float>& getHeights() const;
     [[nodiscard]] const float getElevationAt( float x, float z );
+    [[nodiscard]] const glm::vec2 getMinXZ() const;
 
     [[nodiscard]] constexpr size_t getSizeOfVertexType() const { return sizeof( decltype( m_verticies )::value_type ); }
 
@@ -41,13 +47,16 @@ class Terrain
         return reinterpret_cast<void*>( offsetof( decltype( m_verticies )::value_type, texture ) );
     }
 
+
   private:
-    unsigned int m_cells;
+    unsigned int m_meshCells;
+    unsigned int m_heightMapResolution;
     float m_size;
     float m_spacing;
 
     std::vector<TerrainVertex> m_verticies;
     std::vector<unsigned int> m_indicies;
+    std::vector<float> m_heights;
 };
 
 #endif // TERRAIN_HPP

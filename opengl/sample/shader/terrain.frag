@@ -5,7 +5,7 @@ layout( location = 1 ) in vec2 TexCoord;
 
 out vec4 FragColor;
 
-uniform sampler2D groundTexture;
+uniform sampler2D terrainTexture;
 uniform float phase;
 
 #define TWO_PI 6.283185f
@@ -22,7 +22,7 @@ void main()
 
     n = normalize( n );
 
-    vec3 rgb = texture( groundTexture, TexCoord * 5000 ).xyz;
+    vec3 rgb = texture( terrainTexture, TexCoord * 5000 ).xyz;
 
     float direct  = max( dot( n, sun ), 0.f );
     float ambient = 0.5;

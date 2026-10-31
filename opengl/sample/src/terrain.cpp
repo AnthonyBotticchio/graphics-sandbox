@@ -1,32 +1,54 @@
 #include "terrain.hpp"
 
-Terrain::Terrain( unsigned int cells, float size ) : m_cells( cells ), m_size( size ), m_spacing( size / cells )
+Terrain::Terrain( unsigned int meshCells, unsigned int heightMapResolution, float size )
+    : m_meshCells( meshCells )
+    , m_heightMapResolution( heightMapResolution )
+    , m_size( size )
+    , m_spacing( size / meshCells )
 {
     // Generate verticies
-    for( int z = 0; z <= cells; ++z )
+    for( int z = 0; z <= meshCells; ++z )
     {
-        for( int x = 0; x <= cells; ++x )
+        for( int x = 0; x <= meshCells; ++x )
         {
-            float worldX = x * m_spacing - size * 0.5f;
-            float worldZ = z * m_spacing - size * 0.5f;
+            const float worldX = x * m_spacing - size * 0.5f;
+            const float worldZ = z * m_spacing - size * 0.5f;
+            const auto height  = getElevationAt( worldX, worldZ );
 
-            m_verticies.emplace_back( glm::vec3( worldX, getElevationAt( worldX, worldZ ), worldZ ), glm::vec2( worldX, worldZ ) / 4.0f );
+            m_verticies.emplace_back( glm::vec3( worldX, height, worldZ ), glm::vec2( worldX, worldZ ) / 4.0f );
         }
     }
 
     // Generate Indicies
-    for( int z = 0; z < cells; ++z )
+    for( int z = 0; z < meshCells; ++z )
     {
-        for( int x = 0; x < cells; ++x )
+        for( int x = 0; x < meshCells; ++x )
         {
-            unsigned int a = z * ( cells + 1 ) + x;
-            unsigned int b = a + 1;
-            unsigned int c = a + ( cells + 1 );
-            unsigned int d = c + 1;
+            const unsigned int a = z * ( meshCells + 1 ) + x;
+            const unsigned int b = a + 1;
+            const unsigned int c = a + ( meshCells + 1 );
+            const unsigned int d = c + 1;
 
             m_indicies.insert( std::end( m_indicies ), { a, c, b, b, c, d } );
         }
     }
+
+    // Generate HeightMap
+    const float heightMapSpacing = size / ( heightMapResolution - 1 );
+    for( int z = 0; z < heightMapResolution; ++z )
+    {
+        for( int x = 0; x < heightMapResolution; ++x )
+        {
+            const float worldX = x * heightMapSpacing - size * 0.5f;
+            const float worldZ = z * heightMapSpacing - size * 0.5f;
+            m_heights.emplace_back( getElevationAt( worldX, worldZ ) );
+        }
+    }
+}
+
+const float Terrain::getSize() const
+{
+    return m_size;
 }
 
 const std::vector<TerrainVertex>& Terrain::getVertices() const
@@ -37,6 +59,11 @@ const std::vector<TerrainVertex>& Terrain::getVertices() const
 const std::vector<unsigned int>& Terrain::getIndices() const
 {
     return m_indicies;
+}
+
+const std::vector<float>& Terrain::getHeights() const
+{
+    return m_heights;
 }
 
 const float Terrain::getElevationAt( float x, float z )
@@ -54,6 +81,11 @@ const float Terrain::getElevationAt( float x, float z )
     float height = 5.0f + 3.0f * std::sin( z * 0.008f );
 
     return -5.0f + height * dunes;
+}
+
+const glm::vec2 Terrain::getMinXZ() const
+{
+    return glm::vec2( -m_size * 0.5f );
 }
 
 const size_t Terrain::getVerticiesSize() const

@@ -1,0 +1,13 @@
+# --- Sources ---
+
+target_include_directories(${TARGET} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+file(GLOB CXX_HEADERS CONFIGURE_DEPENDS 
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.h" 
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
+)
+
+target_sources(${TARGET} PRIVATE ${CXX_HEADERS})

@@ -8,8 +8,7 @@ layout( location = 1 ) in vec2 aTexCoord; // the texture variable has attribute 
 out vec2 TexCoord; // output a texture to the fragment shader
 
 uniform mat4 model;
-uniform mat4 view;
-uniform mat4 proj;
+uniform mat4 projView;
 
 uniform float t;
 uniform float theta;
@@ -28,7 +27,7 @@ void main()
     // Homogeneous coordinate for applying translations
     vec4 newPos = vec4( aPos, 1.0 );
 
-    gl_Position = vec4( proj * view * model * t_rot_xy * rot_xy * newPos ); // Apply translation dot product then rotate
+    gl_Position = vec4( projView * model * t_rot_xy * rot_xy * newPos ); // Apply translation dot product then rotate
     // ourColor = vec3(t_rot_xy * aColor.xy, t_c * aColor.z + t_s * t_s * aColor.z);
     TexCoord = aTexCoord;
 }
