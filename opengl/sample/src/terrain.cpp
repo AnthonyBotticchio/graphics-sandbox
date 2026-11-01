@@ -7,23 +7,24 @@ Terrain::Terrain( unsigned int meshCells, unsigned int heightMapResolution, floa
     , m_spacing( size / meshCells )
 {
     // Generate verticies
-    for( int z = 0; z <= meshCells; ++z )
-    {
-        for( int x = 0; x <= meshCells; ++x )
-        {
-            const float worldX = x * m_spacing - size * 0.5f;
-            const float worldZ = z * m_spacing - size * 0.5f;
-            const auto height  = getElevationAt( worldX, worldZ );
-
-            m_verticies.emplace_back( glm::vec3( worldX, height, worldZ ), glm::vec2( worldX, worldZ ) / 4.0f );
-        }
-    }
+    // for( int z = 0; z <= meshCells; ++z )
+    // {
+    //     for( int x = 0; x <= meshCells; ++x )
+    //     {
+    //         const float worldX = x * m_spacing - size * 0.5f;
+    //         const float worldZ = z * m_spacing - size * 0.5f;
+    //         const auto height  = getElevationAt( worldX, worldZ );
+    //
+    //         m_verticies.emplace_back( glm::vec3( worldX, height, worldZ ), glm::vec2( worldX, worldZ ) / 4.0f );
+    //     }
+    // }
 
     // Generate Indicies
     for( int z = 0; z < meshCells; ++z )
     {
         for( int x = 0; x < meshCells; ++x )
         {
+            // For each meshCell we have to generate 4 indicies
             const unsigned int a = z * ( meshCells + 1 ) + x;
             const unsigned int b = a + 1;
             const unsigned int c = a + ( meshCells + 1 );
@@ -49,6 +50,16 @@ Terrain::Terrain( unsigned int meshCells, unsigned int heightMapResolution, floa
 const float Terrain::getSize() const
 {
     return m_size;
+}
+
+const unsigned int Terrain::getResolution() const
+{
+    return m_heightMapResolution;
+}
+
+const unsigned int Terrain::getMeshCells() const
+{
+    return m_meshCells;
 }
 
 const std::vector<TerrainVertex>& Terrain::getVertices() const

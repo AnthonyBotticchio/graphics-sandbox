@@ -19,9 +19,8 @@ class Terrain
     ~Terrain() = default;
 
     [[nodiscard]] const float getSize() const;
-
-    [[nodiscard]] unsigned int getResolution() const { return m_heightMapResolution; }
-
+    [[nodiscard]] const unsigned int getResolution() const;
+    [[nodiscard]] const unsigned int getMeshCells() const;
     [[nodiscard]] const std::vector<TerrainVertex>& getVertices() const;
     [[nodiscard]] const std::vector<unsigned int>& getIndices() const;
     [[nodiscard]] const std::vector<float>& getHeights() const;

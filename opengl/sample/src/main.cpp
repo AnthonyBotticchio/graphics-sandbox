@@ -150,8 +150,8 @@ static int runSample()
 
     // --- Terrain ---
 
-    constexpr unsigned int meshCells         = 512;
-    constexpr unsigned int terrainResolution = 512;
+    constexpr unsigned int meshCells         = 1024;
+    constexpr unsigned int terrainResolution = 2048;
     std::unique_ptr<Terrain> terrain         = std::make_unique<Terrain>( meshCells, terrainResolution, 250.0f );
 
     // --- Particle Bindings ---
@@ -233,23 +233,23 @@ static int runSample()
     engine::gen_terrain_texture( heightTexture, terrain->getResolution(), terrain->getHeights().data() );
 
     // Terrain verticies
-    GLuint terrainVAO, terrainVBO, terrainEBO;
+    GLuint terrainVAO, terrainEBO;
     glGenVertexArrays( 1, &terrainVAO );
-    glGenBuffers( 1, &terrainVBO );
+    // glGenBuffers( 1, &terrainVBO );
     glGenBuffers( 1, &terrainEBO );
 
     glBindVertexArray( terrainVAO );
 
-    glBindBuffer( GL_ARRAY_BUFFER, terrainVBO );
-    glBufferData( GL_ARRAY_BUFFER, terrain->getArrayBufferWidth(), terrain->getVertices().data(), GL_STATIC_DRAW );
+    // glBindBuffer( GL_ARRAY_BUFFER, terrainVBO );
+    // glBufferData( GL_ARRAY_BUFFER, terrain->getArrayBufferWidth(), terrain->getVertices().data(), GL_STATIC_DRAW );
 
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, terrainEBO );
     glBufferData( GL_ELEMENT_ARRAY_BUFFER, terrain->getElementBufferWidth(), terrain->getIndices().data(), GL_STATIC_DRAW );
 
-    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, terrain->getSizeOfVertexType(), terrain->getOffsetOfVertexPosition() );
-    glEnableVertexAttribArray( 0 );
-    glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, terrain->getSizeOfVertexType(), terrain->getOffsetOfVertexTexture() );
-    glEnableVertexAttribArray( 1 );
+    // glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, terrain->getSizeOfVertexType(), terrain->getOffsetOfVertexPosition() );
+    // glEnableVertexAttribArray( 0 );
+    // glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, terrain->getSizeOfVertexType(), terrain->getOffsetOfVertexTexture() );
+    // glEnableVertexAttribArray( 1 );
 
     GLuint grass_tex;
     engine::gen_texture( grass_tex, "saul.jpg" );
@@ -268,7 +268,7 @@ static int runSample()
         // Render loop
         while( framePacer.waitForNextFrame() )
         {
-            ENGINE_SCOPED_TIMER( "Render Time" )
+            // ENGINE_SCOPED_TIMER( "Render Time" )
 
             float t   = static_cast<float>( glfwGetTime() );
             float dt  = std::min( t - lastFrame, 0.033f );
@@ -319,13 +319,20 @@ static int runSample()
             renderer.beginOpaquePass();
 
             terrainShader.use();
-            terrainShader.setUniform( "terrainTexture", 0 ); // Texture unit 0
-            terrainShader.setUniform( "model", glm::mat4( 1.0f ) );
-            terrainShader.setUniform( "projView", projView );
-            terrainShader.setUniform( "phase", phase );
 
             glActiveTexture( GL_TEXTURE0 );
             glBindTexture( GL_TEXTURE_2D, grass_tex );
+            glActiveTexture( GL_TEXTURE1 );
+            glBindTexture( GL_TEXTURE_2D, heightTexture );
+
+            terrainShader.setUniform( "terrainTexture", 0 ); // Texture unit 0
+            terrainShader.setUniform( "heightmap", 1 );      // Texture unit 1
+            terrainShader.setUniform( "terrainMin", terrain->getMinXZ() );
+            terrainShader.setUniform( "terrainSize", terrain->getSize() );
+            terrainShader.setUniform( "meshCells", terrain->getMeshCells() );
+            terrainShader.setUniform( "model", glm::mat4( 1.0f ) );
+            terrainShader.setUniform( "projView", projView );
+            terrainShader.setUniform( "phase", phase );
 
             glBindVertexArray( terrainVAO );
             glDrawElements( GL_TRIANGLES, static_cast<GLsizei>( terrain->getIndicesSize() ), GL_UNSIGNED_INT, nullptr );
@@ -410,7 +417,7 @@ static int runSample()
     glDeleteVertexArrays( 2, renderVAOs );
     glDeleteVertexArrays( 1, &terrainVAO );
     glDeleteBuffers( 2, particleBuffers );
-    glDeleteBuffers( 1, &terrainVBO );
+    // glDeleteBuffers( 1, &terrainVBO );
     glDeleteBuffers( 1, &terrainEBO );
     return EXIT_SUCCESS;
 }
