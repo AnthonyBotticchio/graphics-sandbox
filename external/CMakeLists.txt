@@ -1,8 +1,11 @@
 # --- External Subdirs ---
 
 add_subdirectory(logger)
-add_subdirectory(engine)
 add_subdirectory(glad)
+
+if(NOT WIN32)
+    add_subdirectory(engine)
+endif()
 
 # --- Metal C++ ---
 

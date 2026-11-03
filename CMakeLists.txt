@@ -96,7 +96,7 @@ elseif(WIN32)
     if(MSVC)
         add_compile_options(
             /W3
-            /WX
+            # /WX
         )
     endif()
 endif()
@@ -131,5 +131,6 @@ endif()
 
 if(NOT WIN32)
     add_subdirectory(vulkan)
-    add_subdirectory(external SYSTEM)
 endif()
+
+add_subdirectory(external SYSTEM)
