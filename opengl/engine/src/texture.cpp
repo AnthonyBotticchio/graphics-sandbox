@@ -63,8 +63,6 @@ namespace engine
         {
             glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
             glTexImage2D( GL_TEXTURE_2D, 0, GL_R32F, resolution, resolution, 0, GL_RED, GL_FLOAT, data );
-
-            log_trace( "Generated terrain texture. Resolution: %d.", resolution );
         }
         else
         {

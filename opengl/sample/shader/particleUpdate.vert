@@ -60,15 +60,14 @@ void main()
     oPosition = iPosition + oVelocity * dt;
 
     const float damping = 0.8;
-    vec2 terrainMax = terrainMin + vec2( terrainSize );
-    bool insideTerrain = all( greaterThanEqual( oPosition.xz, terrainMin ) ) &&
-                         all( lessThanEqual( oPosition.xz, terrainMax ) );
-    float terrainY = elevationAt( oPosition.xz );
+    vec2 terrainMax     = terrainMin + vec2( terrainSize );
+    bool insideTerrain  = all( greaterThanEqual( oPosition.xz, terrainMin ) ) && all( lessThanEqual( oPosition.xz, terrainMax ) );
+    float terrainY      = elevationAt( oPosition.xz );
     if( insideTerrain && oPosition.y < terrainY )
     {
         oPosition.y = terrainY;
         vec3 normal = normalAt( oPosition.xz );
-        float vn = dot( oVelocity, normal );
+        float vn    = dot( oVelocity, normal );
         if( vn < 0.0 )
             oVelocity -= ( 1.0 + damping ) * vn * normal;
     }

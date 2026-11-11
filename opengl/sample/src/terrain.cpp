@@ -1,11 +1,14 @@
 #include "terrain.hpp"
 
+#include "engine/timers.hpp"
+
 Terrain::Terrain( unsigned int meshCells, unsigned int heightMapResolution, float size )
     : m_meshCells( meshCells )
     , m_heightMapResolution( heightMapResolution )
     , m_size( size )
     , m_spacing( size / meshCells )
 {
+    ENGINE_SCOPED_TIMER( "Terrain Constructor" )
     // Generate verticies
     // for( int z = 0; z <= meshCells; ++z )
     // {
@@ -36,6 +39,7 @@ Terrain::Terrain( unsigned int meshCells, unsigned int heightMapResolution, floa
 
     // Generate HeightMap
     const float heightMapSpacing = size / ( heightMapResolution - 1 );
+    m_heights.reserve( heightMapSpacing * heightMapSpacing );
     for( int z = 0; z < heightMapResolution; ++z )
     {
         for( int x = 0; x < heightMapResolution; ++x )

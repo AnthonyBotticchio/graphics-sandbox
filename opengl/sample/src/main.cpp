@@ -139,7 +139,7 @@ static int runSample()
 
     // --- Renderer ---
 
-    engine::Renderer renderer;
+    engine::Renderer renderer( &context );
 
     // --- Shaders ---
 
@@ -162,7 +162,7 @@ static int runSample()
         float velocity[3];
     };
 
-    constexpr GLsizei particleCount = 1000000;
+    constexpr GLsizei particleCount = 500000;
     std::vector<ParticleState> initialParticles( particleCount );
 
     std::mt19937 rng( 42 );
@@ -235,21 +235,12 @@ static int runSample()
     // Terrain verticies
     GLuint terrainVAO, terrainEBO;
     glGenVertexArrays( 1, &terrainVAO );
-    // glGenBuffers( 1, &terrainVBO );
     glGenBuffers( 1, &terrainEBO );
 
     glBindVertexArray( terrainVAO );
 
-    // glBindBuffer( GL_ARRAY_BUFFER, terrainVBO );
-    // glBufferData( GL_ARRAY_BUFFER, terrain->getArrayBufferWidth(), terrain->getVertices().data(), GL_STATIC_DRAW );
-
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, terrainEBO );
     glBufferData( GL_ELEMENT_ARRAY_BUFFER, terrain->getElementBufferWidth(), terrain->getIndices().data(), GL_STATIC_DRAW );
-
-    // glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, terrain->getSizeOfVertexType(), terrain->getOffsetOfVertexPosition() );
-    // glEnableVertexAttribArray( 0 );
-    // glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, terrain->getSizeOfVertexType(), terrain->getOffsetOfVertexTexture() );
-    // glEnableVertexAttribArray( 1 );
 
     GLuint grass_tex;
     engine::gen_texture( grass_tex, "saul.jpg" );
@@ -270,12 +261,6 @@ static int runSample()
         {
             // ENGINE_SCOPED_TIMER( "Render Time" )
 
-            float t   = static_cast<float>( glfwGetTime() );
-            float dt  = std::min( t - lastFrame, 0.033f );
-            lastFrame = t;
-
-            process_input( window, *camera, dt );
-
             // For future render class idea
             // Input and simulation
             // particles.update( dt, mouseTarget, mouseActive );
@@ -286,6 +271,14 @@ static int runSample()
             // renderer.drawParticles( particles );
             // context.swapBuffers();
 
+            // --- Begin Frame ---
+
+            float t   = static_cast<float>( glfwGetTime() );
+            float dt  = std::min( t - lastFrame, 0.033f );
+            lastFrame = t;
+
+            process_input( window, *camera, dt );
+
             // Correct camera position
             glm::vec3 cameraPosition  = camera->getPosition();
             constexpr float eyeHeight = 1.3f;
@@ -294,21 +287,21 @@ static int runSample()
             camera->setPosition( cameraPosition );
 
             int fbW, fbH, windowW, windowH;
-            glfwGetFramebufferSize( window, &fbW, &fbH );
-            glfwGetWindowSize( window, &windowW, &windowH );
+            context.getWindowSize( &windowW, &windowH );
+            context.getFramebufferSize( &fbW, &fbH );
 
-            renderer.beginFrame( fbW, fbH );
+            renderer.beginFrame();
 
             // --- Constants ---
 
             double mouseX, mouseY;
-            glfwGetCursorPos( window, &mouseX, &mouseY );
-            const float mx             = static_cast<float>( mouseX * fbW / windowW );
-            const float my             = static_cast<float>( ( windowH - mouseY ) * fbH / windowH );
-            const float aspect         = static_cast<float>( fbW ) / fbH;
-            const glm::mat4 view       = camera->getViewMatrix();
-            const glm::mat4 projection = camera->getProjectionMatrix( aspect );
-            const glm::mat4 projView   = projection * view;
+            context.getCursorPosition( &mouseX, &mouseY );
+            const float mx              = static_cast<float>( mouseX * fbW / windowW );
+            const float my              = static_cast<float>( ( windowH - mouseY ) * fbH / windowH );
+            const float aspect          = static_cast<float>( fbW ) / fbH;
+            const glm::mat4& view       = camera->getViewMatrix();
+            const glm::mat4& projection = camera->getProjectionMatrix( aspect );
+            const glm::mat4& projView   = projection * view;
 
             // --- Terrain ---
 
@@ -399,13 +392,13 @@ static int runSample()
             glBindVertexArray( renderVAOs[writeIndex] );
             glDrawArraysInstanced( GL_TRIANGLE_STRIP, 0, 4, particleCount );
 
-            // --- End Particle Pass ---
-
             std::swap( readIndex, writeIndex );
 
-            // --- End Draw ---
+            renderer.endParticlePass();
 
-            context.swapBuffers();
+            // --- End Frame ---
+
+            renderer.endFrame();
         }
 
     } // Stop frame callbacks before releasing OpenGL resources and the window.

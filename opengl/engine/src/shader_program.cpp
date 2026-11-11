@@ -1,6 +1,7 @@
 #include "engine/shader_program.hpp"
 
 #include "engine/runtime.hpp"
+#include "engine/timers.hpp"
 
 #include <fstream>
 #include <sstream>

@@ -95,4 +95,20 @@ namespace engine
     {
         glfwSwapBuffers( m_window );
     }
+
+    void Window::getFramebufferSize( int* fbW, int* fbH ) const
+    {
+        glfwGetFramebufferSize( m_window, fbW, fbH );
+    }
+
+    void Window::getWindowSize( int* windowW, int* windowH ) const
+    {
+        glfwGetWindowSize( m_window, windowW, windowH );
+    }
+
+    void Window::getCursorPosition( double* mouseX, double* mouseY ) const
+    {
+        glfwGetCursorPos( m_window, mouseX, mouseY );
+    }
+
 } // namespace engine

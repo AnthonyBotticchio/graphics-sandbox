@@ -1,8 +1,6 @@
 #include <stdlib.h>
 
-#include <ev2/context.h>
-#include <ev2/pipeline.h>
-#include <glm/glm.hpp>
+#include <ev2/core.h>
 
 extern "C"
 {

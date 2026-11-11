@@ -30,6 +30,10 @@ namespace engine
         [[nodiscard]] GLFWwindow* nativeHandle() const noexcept;
         void swapBuffers() const;
 
+        void getFramebufferSize( int* fbW, int* fbH ) const;
+        void getWindowSize( int* windowW, int* windowH ) const;
+        void getCursorPosition( double* mouseX, double* mouseY ) const;
+
       private:
         GLFWwindow* m_window = nullptr;
     };
