@@ -69,6 +69,7 @@ macos() {
     # Install dependencies
     DEPENDENCIES=(
         glfw
+        sdl3
         glm
         shaderc
         cmake

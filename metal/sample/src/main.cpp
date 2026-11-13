@@ -1,156 +1,183 @@
-#define NS_PRIVATE_IMPLEMENTATION
-#define CA_PRIVATE_IMPLEMENTATION
-#define MTL_PRIVATE_IMPLEMENTATION
-#include <Foundation/Foundation.hpp>
-#include <Metal/Metal.hpp>
-#include <QuartzCore/QuartzCore.hpp>
+#include "engine/application.hpp"
+#include "engine/camera.hpp"
+#include "engine/runtime.hpp"
+#include "engine/timers.hpp"
 
-#define GLFW_INCLUDE_NONE
-#define GLFW_EXPOSE_NATIVE_COCOA
-#include <algorithm>
-#include <filesystem>
 #include <fstream>
 #include <iterator>
-#include <memory>
 #include <stdexcept>
-#include <vector>
+#include <string>
 
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
-#include <mach-o/dyld.h>
-#include <objc/message.h>
+#include <Foundation/Foundation.hpp>
+#include <Metal/Metal.hpp>
+#include <SDL3/SDL_main.h>
 
 extern "C"
 {
 #include <log.h>
 }
 
-static std::filesystem::path resourceDirectory()
-{
-    uint32_t size = 0;
-    _NSGetExecutablePath( nullptr, &size );
-    std::vector<char> path( size );
-    _NSGetExecutablePath( path.data(), &size );
-    return std::filesystem::canonical( path.data() ).parent_path().parent_path();
-}
-
-// metal-cpp does not wrap NSWindow/NSView. Attach the layer through the
-// Objective-C runtime's C interface, keeping this translation unit plain C++.
-static void attachLayer( GLFWwindow* window, CA::MetalLayer* layer )
-{
-    id cocoaWindow = glfwGetCocoaWindow( window );
-    id view        = reinterpret_cast<id ( * )( id, SEL )>( objc_msgSend )( cocoaWindow, sel_registerName( "contentView" ) );
-    reinterpret_cast<void ( * )( id, SEL, BOOL )>( objc_msgSend )( view, sel_registerName( "setWantsLayer:" ), YES );
-    reinterpret_cast<void ( * )( id, SEL, CA::MetalLayer* )>( objc_msgSend )( view, sel_registerName( "setLayer:" ), layer );
-}
-
-static void render( GLFWwindow* window )
-{
-    auto device = NS::TransferPtr( MTL::CreateSystemDefaultDevice() );
-    if( !device )
-        throw std::runtime_error( "No Metal device available" );
-    auto queue = NS::TransferPtr( device->newCommandQueue() );
-    if( !queue )
-        throw std::runtime_error( "Failed to create Metal command queue" );
-
-    const auto shaderPath = resourceDirectory() / "shader" / "triangle.metal";
-    std::ifstream file( shaderPath );
-    if( !file )
-        throw std::runtime_error( "Failed to read shader: " + shaderPath.string() );
-    const std::string source{ std::istreambuf_iterator<char>( file ), std::istreambuf_iterator<char>() };
-    NS::Error* error = nullptr;
-    auto library = NS::TransferPtr( device->newLibrary( NS::String::string( source.c_str(), NS::UTF8StringEncoding ), nullptr, &error ) );
-    if( !library )
-        throw std::runtime_error( error ? error->localizedDescription()->utf8String() : "Failed to compile shader" );
-
-    auto vertex     = NS::TransferPtr( library->newFunction( MTLSTR( "triangleVertex" ) ) );
-    auto fragment   = NS::TransferPtr( library->newFunction( MTLSTR( "triangleFragment" ) ) );
-    auto descriptor = NS::TransferPtr( MTL::RenderPipelineDescriptor::alloc()->init() );
-    descriptor->setVertexFunction( vertex.get() );
-    descriptor->setFragmentFunction( fragment.get() );
-    descriptor->colorAttachments()->object( 0 )->setPixelFormat( MTL::PixelFormatBGRA8Unorm );
-    auto pipeline = NS::TransferPtr( device->newRenderPipelineState( descriptor.get(), &error ) );
-    if( !pipeline )
-        throw std::runtime_error( error ? error->localizedDescription()->utf8String() : "Failed to create render pipeline" );
-
-    auto layer = NS::RetainPtr( CA::MetalLayer::layer() );
-    layer->setDevice( device.get() );
-    layer->setPixelFormat( MTL::PixelFormatBGRA8Unorm );
-    layer->setFramebufferOnly( true );
-    layer->setDisplaySyncEnabled( true );
-    attachLayer( window, layer.get() );
-    log_info( "Metal device: %s", device->name()->utf8String() );
-    log_info( "mtl-sample started" );
-
-    while( !glfwWindowShouldClose( window ) )
-    {
-        auto framePool = NS::TransferPtr( NS::AutoreleasePool::alloc()->init() );
-        glfwPollEvents();
-        if( glfwWindowShouldClose( window ) )
-            break;
-        int width = 0, height = 0;
-        glfwGetFramebufferSize( window, &width, &height );
-        if( width == 0 || height == 0 || glfwGetWindowAttrib( window, GLFW_ICONIFIED ) )
-        {
-            glfwWaitEventsTimeout( 0.1 );
-            continue;
-        }
-        layer->setDrawableSize( CGSizeMake( width, height ) );
-        auto* drawable = layer->nextDrawable();
-        if( !drawable )
-            continue;
-
-        auto* pass  = MTL::RenderPassDescriptor::renderPassDescriptor();
-        auto* color = pass->colorAttachments()->object( 0 );
-        color->setTexture( drawable->texture() );
-        color->setLoadAction( MTL::LoadActionClear );
-        color->setStoreAction( MTL::StoreActionStore );
-        color->setClearColor( MTL::ClearColor( 0.08, 0.08, 0.12, 1.0 ) );
-        auto* commands = queue->commandBuffer();
-        auto* encoder  = commands->renderCommandEncoder( pass );
-        encoder->setRenderPipelineState( pipeline.get() );
-        // Preserve the triangle's proportions when the window is resized.
-        const double side = std::min( width, height );
-        encoder->setViewport( MTL::Viewport{ ( width - side ) / 2.0, ( height - side ) / 2.0, side, side, 0.0, 1.0 } );
-        encoder->drawPrimitives( MTL::PrimitiveTypeTriangle, NS::UInteger( 0 ), NS::UInteger( 3 ) );
-        encoder->endEncoding();
-        commands->presentDrawable( drawable );
-        commands->commit();
-        // Keep this introductory sample to one frame in flight.
-        commands->waitUntilCompleted();
-        if( commands->status() == MTL::CommandBufferStatusError )
-            throw std::runtime_error( commands->error()->localizedDescription()->utf8String() );
-    }
-}
-
-int main()
+int main( int, char** )
 {
     setup_logger( nullptr, LOG_INFO, false );
-    auto pool = NS::TransferPtr( NS::AutoreleasePool::alloc()->init() );
-    glfwSetErrorCallback( []( int code, const char* message ) { log_error( "GLFW %d: %s", code, message ); } );
-    if( !glfwInit() )
-        return 1;
 
-    int result = 0;
+    auto pool            = NS::TransferPtr( NS::AutoreleasePool::alloc()->init() );
+    auto& app            = engine::Application::getInstance();
+    SDL_AppResult result = SDL_APP_FAILURE;
+
+    try
     {
-        glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
-        std::unique_ptr<GLFWwindow, decltype( &glfwDestroyWindow )> window(
-            glfwCreateWindow( 800, 600, "Metal Triangle", nullptr, nullptr ), glfwDestroyWindow );
-        if( !window )
-            result = 1;
-        else
+        if( !app.initialize( 900, 600 ) )
+            return 1;
+
+        // We are using SDL for the windowing, SDL provides an SDL_Metal_Layer which is backed by NSView/UIView.
+        // Our application class will own this layer and SDL functions, however, we need to create a device using this layer
+        // as SDL doesn't do that automatically unless we want to use their GPU abstractions (we don't)
+        CA::MetalLayer* layer = app.metalLayer();
+        const auto shaderPath = engine::get_runtime_dir() / "shader" / "triangle.metal";
+        auto device           = NS::TransferPtr( MTL::CreateSystemDefaultDevice() );
+        if( !device )
+            throw std::runtime_error( "No Metal device available" );
+
+        auto queue = NS::TransferPtr( device->newCommandQueue() );
+        if( !queue )
+            throw std::runtime_error( "Failed to create Metal command queue" );
+
+        std::ifstream file( shaderPath );
+        if( !file )
         {
-            try
+            throw std::runtime_error( "Failed to read shader: " + shaderPath.string() );
+        }
+        const std::string shaderSource{ std::istreambuf_iterator<char>( file ), std::istreambuf_iterator<char>() };
+
+        NS::Error* error = nullptr;
+        auto library =
+            NS::TransferPtr( device->newLibrary( NS::String::string( shaderSource.c_str(), NS::UTF8StringEncoding ), nullptr, &error ) );
+
+        if( !library )
+            throw std::runtime_error( std::string( "Failed to compile shader: " ) +
+                                      ( error ? error->localizedDescription()->utf8String() : "Unknown error" ) );
+
+        auto vertexFn   = NS::TransferPtr( library->newFunction( MTLSTR( "vertexMain" ) ) );
+        auto fragmentFn = NS::TransferPtr( library->newFunction( MTLSTR( "fragmentMain" ) ) );
+
+        if( !vertexFn || !fragmentFn )
+            throw std::runtime_error( "Shader must define vertexMain and fragmentMain" );
+
+        auto descriptor = NS::TransferPtr( MTL::RenderPipelineDescriptor::alloc()->init() );
+        descriptor->setVertexFunction( vertexFn.get() );
+        descriptor->setFragmentFunction( fragmentFn.get() );
+        descriptor->colorAttachments()->object( 0 )->setPixelFormat( MTL::PixelFormatBGRA8Unorm );
+        auto pipeline = NS::TransferPtr( device->newRenderPipelineState( descriptor.get(), &error ) );
+
+        if( !pipeline )
+            throw std::runtime_error( std::string( "Failed to create render pipeline: " ) +
+                                      ( error ? error->localizedDescription()->utf8String() : "Unknown error" ) );
+        layer->setDevice( device.get() );
+        layer->setPixelFormat( MTL::PixelFormatBGRA8Unorm );
+        layer->setFramebufferOnly( true );
+        layer->setDisplaySyncEnabled( true );
+        log_info( "Metal Device: %s", device->name()->utf8String() );
+
+        engine::Camera camera( glm::vec3( 0.0f, 0.0f, 3.0f ) );
+
+        const auto mbtnDown = app.addMouseButtonDownCallback( []( const SDL_MouseButtonEvent& event )
+                                                              { log_trace( "Mouse Button Down - x: %f, y: %f", event.x, event.y ); } );
+
+        result = SDL_APP_CONTINUE;
+        while( result == SDL_APP_CONTINUE )
+        {
+            // ENGINE_SCOPED_TIMER( "Render Frame" )
+
+            SDL_Event event;
+            while( SDL_PollEvent( &event ) )
             {
-                render( window.get() );
+                // ENGINE_SCOPED_TIMER( "Handle Events" )
+                result = app.handleEvent( &event );
+                if( result != SDL_APP_CONTINUE )
+                    break;
             }
-            catch( const std::exception& error )
+
+            if( result != SDL_APP_CONTINUE )
+                break;
+
+            result = app.iterate();
+
+            if( result != SDL_APP_CONTINUE )
+                break;
+
+            const int width  = app.drawableWidth();
+            const int height = app.drawableHeight();
+            if( width <= 0 || height <= 0 )
+                continue;
+
+            // Begin Render
+
+            // Factory-created Metal objects below live until the end of this frame.
+            auto pool               = NS::TransferPtr( NS::AutoreleasePool::alloc()->init() );
+            const auto drawableSize = layer->drawableSize();
+            if( drawableSize.width != width || drawableSize.height != height )
+                layer->setDrawableSize( CGSizeMake( width, height ) );
+
+            auto* drawable = layer->nextDrawable();
+            if( !drawable )
+                continue;
+
+            auto* commands = queue->commandBuffer();
+            if( !commands )
             {
-                log_error( "%s", error.what() );
-                result = 1;
+                throw std::runtime_error( "Failed to create Metal command buffer" );
+            }
+
+            auto* pass  = MTL::RenderPassDescriptor::renderPassDescriptor();
+            auto* color = pass->colorAttachments()->object( 0 );
+            color->setTexture( drawable->texture() );
+            color->setLoadAction( MTL::LoadActionClear );
+            color->setStoreAction( MTL::StoreActionStore );
+            color->setClearColor( MTL::ClearColor( 0.08, 0.08, 0.12, 1.0 ) );
+
+            auto* encoder = commands->renderCommandEncoder( pass );
+            if( !encoder )
+            {
+                throw std::runtime_error( "Failed to create Metal render command encoder" );
+            }
+
+            const float t                   = static_cast<float>( SDL_GetTicksNS() / 1e9 );
+            const float aspect              = static_cast<float>( width ) / height;
+            const glm::mat4& viewProjection = camera.getProjectionMatrix( aspect ) * camera.getViewMatrix();
+
+            auto vertArgEncoder = vertexFn->newArgumentEncoder( 0 );
+            auto vertArgBuffer  = device->newBuffer( vertArgEncoder->encodedLength(), MTL::ResourceStorageModeShared );
+            vertArgEncoder->setArgumentBuffer( vertArgBuffer, 0 );
+            // vertArgEncoder->setBuffer( t, 0, 0 );
+
+            encoder->setRenderPipelineState( pipeline.get() );
+            encoder->setVertexBytes( &viewProjection, sizeof( viewProjection ), 0 );
+            encoder->setFragmentBytes( &t, sizeof( t ), 0 );
+            encoder->setViewport( MTL::Viewport{ 0.0, 0.0, double( width ), double( height ), 0.0, 1.0 } );
+            encoder->drawPrimitives( MTL::PrimitiveTypeTriangle, NS::UInteger( 0 ), NS::UInteger( 3 ) );
+            encoder->endEncoding();
+
+            // Further render, compute, or blit encoders can use this command buffer
+            // after the previous encoder has ended and before committing it.
+            commands->presentDrawable( drawable );
+            commands->commit();
+            // Keep one frame in flight for now; all frame resources finish before cleanup.
+            commands->waitUntilCompleted();
+            if( commands->status() == MTL::CommandBufferStatusError )
+            {
+                auto* error = commands->error();
+                throw std::runtime_error( std::string( "Metal command buffer failed: " ) +
+                                          ( error ? error->localizedDescription()->utf8String() : "Unknown error" ) );
             }
         }
     }
-    glfwTerminate();
-    return result;
+    catch( const std::exception& error )
+    {
+        log_error( "%s", error.what() );
+        result = SDL_APP_FAILURE;
+    }
+
+    app.shutdown();
+    return result == SDL_APP_SUCCESS ? 0 : 1;
 }

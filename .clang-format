@@ -3,7 +3,10 @@
 ---
 BasedOnStyle: LLVM
 AccessModifierOffset: -2
-AlignConsecutiveAssignments: true
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
 AlignEscapedNewlinesLeft: false
 AlignTrailingComments: true
 AlignConsecutiveMacros: true

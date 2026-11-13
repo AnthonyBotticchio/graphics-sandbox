@@ -1,0 +1,15 @@
+CompileFlags:
+  CompilationDatabase: build
+
+Completion:
+  HeaderInsertion: Never
+
+---
+If:
+  PathMatch: .*\.metal
+
+CompileFlags:
+  Add:
+    - "-x"
+    - "c++"
+

@@ -7,9 +7,7 @@ add_executable(${TARGET})
 # --- Dependencies ---
 
 target_link_libraries(${TARGET} PRIVATE
-    metal-cpp
-    glfw
-    logger
+    metal-engine
 )
 
 # --- Sources ---

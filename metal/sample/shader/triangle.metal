@@ -7,7 +7,8 @@ struct VertexOutput
     float3 color;
 };
 
-vertex VertexOutput triangleVertex(uint vertexID [[vertex_id]])
+vertex VertexOutput vertexMain(uint vertexID [[vertex_id]],
+                               constant float4x4& viewProjection [[buffer(0)]])
 {
     const float2 positions[] = {
         float2( 0.0,  0.7),
@@ -20,10 +21,10 @@ vertex VertexOutput triangleVertex(uint vertexID [[vertex_id]])
         float3(0.0, 0.0, 1.0)
     };
 
-    return { float4(positions[vertexID], 0.0, 1.0), colors[vertexID] };
+    return { viewProjection * float4(positions[vertexID], 0.0, 1.0), colors[vertexID] };
 }
 
-fragment float4 triangleFragment(VertexOutput in [[stage_in]])
+fragment float4 fragmentMain(VertexOutput in [[stage_in]], constant float& t [[buffer(0)]])
 {
-    return float4(in.color, 1.0);
+    return float4(in.color * float3(0.5f + 0.5f * cos(t), sin(t), -sin(t) * cos(t)), 1.0);
 }
